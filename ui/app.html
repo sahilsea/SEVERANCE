@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SEVERANCE — Document Trust Workbench</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <h1>SEVERANCE</h1>
+    <div class="tagline">MRPL RTI § 10 Passage Severability Engine</div>
+  </div>
+
+  <nav class="nav-links">
+    <a href="/app" class="active">Workbench</a>
+    <a href="/admin" id="adminNavLink" style="display: none;">Access & Clearance</a>
+  </nav>
+
+  <div id="userChipContainer"></div>
+</header>
+
+<main>
+  <div class="grid-workbench">
+    <!-- Left Column: The Ask Workbench -->
+    <div>
+      <div class="card">
+        <h2>Ask Corpus Query</h2>
+        <form id="askForm">
+          <textarea id="questionInput" rows="3" placeholder="e.g. What are the emergency shutdown parameters for CDU-2?" required></textarea>
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <label style="font-size: 0.8rem; color: var(--text-secondary);">Top Readable Passages:</label>
+              <input type="number" id="topKInput" value="3" min="1" max="10" style="width: 60px; margin-bottom: 0;">
+            </div>
+            <button type="submit" id="askBtn" class="btn-primary">Synthesize & Verify</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Result Card -->
+      <div id="resultCard" class="card" style="display: none;">
+        <h2>
+          <span>Query Outcome</span>
+          <span id="statusBadge" class="badge"></span>
+        </h2>
+
+        <!-- Classification Inheritance Header -->
+        <div style="margin-bottom: 1rem; padding: 0.5rem 0.75rem; background: var(--bg-card); border-radius: 6px; border: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <span style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase;">Inherited Classification:</span>
+            <span id="tierBadge" class="badge" style="margin-left: 0.5rem;"></span>
+            <span id="compartmentsBadgeContainer"></span>
+          </div>
+          <button id="downloadReportBtn" class="btn-secondary" style="display: none;">Download Report (.docx)</button>
+        </div>
+
+        <!-- Synthesized Answer Text -->
+        <div style="margin-bottom: 1.5rem;">
+          <h3 style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.4rem; text-transform: uppercase;">Synthesized Answer</h3>
+          <div id="answerText" class="markdown-body"></div>
+        </div>
+
+        <!-- Citations Table -->
+        <div id="citationsSection" style="margin-bottom: 1.5rem; display: none;">
+          <h3 style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.4rem; text-transform: uppercase;">Verbatim Verified Citations</h3>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 25%;">Document ID</th>
+                <th style="width: 15%;">Page</th>
+                <th>Verbatim Quoted Passage (Exact Match)</th>
+              </tr>
+            </thead>
+            <tbody id="citationsBody"></tbody>
+          </table>
+        </div>
+
+        <!-- Denials Table -->
+        <div id="denialsSection" style="margin-bottom: 1.5rem; display: none;">
+          <h3 style="font-size: 0.85rem; color: var(--accent-red); margin-bottom: 0.4rem; text-transform: uppercase;">Severability Gate: Withheld Materials</h3>
+          <p style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Under RTI Section 10, the following documents matched relevance scoring but were withheld by the two-axis security gate. Text was completely discarded.</p>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 30%;">Withheld Document</th>
+                <th>Deterministic Security Reason</th>
+              </tr>
+            </thead>
+            <tbody id="denialsBody"></tbody>
+          </table>
+        </div>
+
+        <!-- Collapsible Raw JSON -->
+        <details>
+          <summary style="font-size: 0.8rem; color: var(--text-secondary); cursor: pointer; margin-top: 1rem;">View Raw JSON Payload</summary>
+          <pre id="rawJsonView" class="raw-json" style="margin-top: 0.5rem;"></pre>
+        </details>
+      </div>
+    </div>
+
+    <!-- Right Column: Documents & Ledger Audit -->
+    <div>
+      <!-- Corpus Documents Panel -->
+      <div class="card">
+        <h2>
+          <span>MRPL Corpus Documents</span>
+          <button onclick="loadDocuments()" class="btn-secondary">Refresh</button>
+        </h2>
+        <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.5rem;">
+          Corpus accessibility evaluated dynamically against your pay grade and active compartments.
+        </div>
+        <div id="documentsContainer">Loading corpus...</div>
+      </div>
+
+      <!-- Ledger Audit Panel -->
+      <div class="card">
+        <h2>
+          <span>Immutable Audit Ledger</span>
+          <button onclick="verifyChain()" class="btn-secondary">Verify Chain</button>
+        </h2>
+        <div id="chainStatus" style="font-size: 0.8rem; margin-bottom: 0.5rem;"></div>
+        <div style="max-height: 250px; overflow-y: auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Action</th>
+                <th>Actor</th>
+                <th>Hash Link (SHA-256)</th>
+              </tr>
+            </thead>
+            <tbody id="ledgerBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="/static/app.js"></script>
+<script>
+  let currentPrincipal = null;
+  let lastLedgerRowId = null;
+
+  async function init() {
+    currentPrincipal = await getCurrentPrincipal();
+    if (!currentPrincipal) return;
+
+    renderUserChip(currentPrincipal);
+
+    // Show Access & Clearance tab if user is admin or holds sponsor/delegate rights
+    if (currentPrincipal.is_admin) {
+      document.getElementById("adminNavLink").style.display = "inline-block";
+    } else {
+      const grantsRes = await fetchAPI("/grants/mine");
+      if (grantsRes.ok) {
+        const data = await grantsRes.json();
+        if (data.sponsored_compartments && data.sponsored_compartments.length > 0) {
+          document.getElementById("adminNavLink").style.display = "inline-block";
+        }
+      }
+    }
+
+    loadDocuments();
+    loadLedger();
+  }
+
+  async function loadDocuments() {
+    const container = document.getElementById("documentsContainer");
+    try {
+      const res = await fetchAPI("/documents");
+      const docs = await res.json();
+
+      if (docs.length === 0) {
+        container.innerHTML = `<div style="font-size: 0.8rem; color: var(--text-secondary);">No documents loaded in manifest.</div>`;
+        return;
+      }
+
+      let html = "";
+      docs.forEach(d => {
+        const cardClass = d.readable ? "doc-readable" : "doc-locked";
+        const tierClass = `badge-${d.label.tier.toLowerCase()}`;
+        const compsHtml = d.label.compartments.map(c => `<span class="badge badge-comp">${c}</span>`).join(" ");
+
+        html += `
+          <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.75rem; margin-bottom: 0.75rem;" class="${cardClass}">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+              <div>
+                <strong style="font-size: 0.85rem;">${d.title}</strong>
+                <div class="mono" style="font-size: 0.7rem; color: var(--text-secondary);">${d.doc_id}</div>
+              </div>
+              <div>
+                <span class="badge ${tierClass}">${d.label.tier}</span>
+              </div>
+            </div>
+            <div style="margin-top: 0.4rem;">${compsHtml}</div>
+            ${!d.readable ? `<div class="notice">Locked: ${d.denial_reason || 'Clearance restricted'}</div>` : ''}
+          </div>
+        `;
+      });
+      container.innerHTML = html;
+    } catch (err) {
+      container.innerHTML = `<div class="error-msg">${err.message}</div>`;
+    }
+  }
+
+  async function loadLedger() {
+    const tbody = document.getElementById("ledgerBody");
+    try {
+      const res = await fetchAPI("/ledger?limit=15");
+      const rows = await res.json();
+      tbody.innerHTML = rows.map(r => `
+        <tr>
+          <td class="mono">#${r.row_id}</td>
+          <td><span class="badge badge-internal">${r.action}</span></td>
+          <td class="mono">${r.actor}</td>
+          <td class="mono" title="${r.hash}">${r.hash.substring(0, 10)}...</td>
+        </tr>
+      `).join("");
+    } catch (err) {
+      console.error("Ledger load error:", err);
+    }
+  }
+
+  async function verifyChain() {
+    const statusDiv = document.getElementById("chainStatus");
+    statusDiv.innerHTML = `<span style="color: var(--accent-blue);">Cryptographically verifying chain...</span>`;
+    try {
+      const res = await fetchAPI("/ledger/verify");
+      const data = await res.json();
+      if (data.intact) {
+        statusDiv.innerHTML = `<span style="color: var(--accent-green); font-weight: 600;">Chain Intact (All ${data.total_rows} SHA-256 links validated)</span>`;
+      } else {
+        statusDiv.innerHTML = `<span style="color: var(--accent-red); font-weight: 600;">CHAIN BROKEN at row #${data.broken_at_row_id}!</span>`;
+      }
+    } catch (err) {
+      statusDiv.innerHTML = `<span style="color: var(--accent-red);">Verification check failed: ${err.message}</span>`;
+    }
+  }
+
+  document.getElementById("askForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById("askBtn");
+    const question = document.getElementById("questionInput").value.trim();
+    const top_k = parseInt(document.getElementById("topKInput").value, 10) || 3;
+
+    btn.disabled = true;
+    btn.textContent = "Processing Gate & Verifying...";
+
+    try {
+      const res = await fetchAPI("/ask", {
+        method: "POST",
+        body: JSON.stringify({ question, top_k }),
+      });
+
+      const data = await res.json();
+      renderAskResponse(data);
+      loadLedger(); // Refresh ledger
+    } catch (err) {
+      alert("Query execution failed: " + err.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Synthesize & Verify";
+    }
+  });
+
+  function renderAskResponse(data) {
+    const card = document.getElementById("resultCard");
+    card.style.display = "block";
+
+    // Status Badge
+    const statusBadge = document.getElementById("statusBadge");
+    statusBadge.textContent = data.status;
+    statusBadge.className = `badge badge-status-${data.status}`;
+
+    // Effective Classification Badge
+    const tierBadge = document.getElementById("tierBadge");
+    tierBadge.textContent = data.effective_label.tier;
+    tierBadge.className = `badge badge-${data.effective_label.tier.toLowerCase()}`;
+
+    const compsContainer = document.getElementById("compartmentsBadgeContainer");
+    compsContainer.innerHTML = (data.effective_label.compartments || []).map(
+      c => `<span class="badge badge-comp">${c}</span>`
+    ).join(" ");
+
+    // Answer text (rendered from Markdown; input is HTML-escaped before parsing)
+    document.getElementById("answerText").innerHTML = renderMarkdown(data.answer);
+
+    // Report Download Button
+    const dlBtn = document.getElementById("downloadReportBtn");
+    if (data.status === "answered" && data.ledger_row_id) {
+      dlBtn.style.display = "inline-block";
+      dlBtn.onclick = () => {
+        window.location.href = `/report/${data.ledger_row_id}`;
+      };
+    } else {
+      dlBtn.style.display = "none";
+    }
+
+    // Citations
+    const citSection = document.getElementById("citationsSection");
+    const citBody = document.getElementById("citationsBody");
+    if (data.citations && data.citations.length > 0) {
+      citSection.style.display = "block";
+      citBody.innerHTML = data.citations.map(c => `
+        <tr>
+          <td class="mono"><strong>${c.doc_id}</strong></td>
+          <td class="mono">Page ${c.page}</td>
+          <td><div class="quote-box">"${c.quote}"</div></td>
+        </tr>
+      `).join("");
+    } else {
+      citSection.style.display = "none";
+      citBody.innerHTML = "";
+    }
+
+    // Denials
+    const denSection = document.getElementById("denialsSection");
+    const denBody = document.getElementById("denialsBody");
+    if (data.denials && data.denials.length > 0) {
+      denSection.style.display = "block";
+      denBody.innerHTML = data.denials.map(d => `
+        <tr>
+          <td class="mono"><strong>${d.doc_id}</strong></td>
+          <td><div class="denial-box">${d.reason}</div></td>
+        </tr>
+      `).join("");
+    } else {
+      denSection.style.display = "none";
+      denBody.innerHTML = "";
+    }
+
+    // Raw JSON
+    document.getElementById("rawJsonView").textContent = JSON.stringify(data, null, 2);
+  }
+
+  init();
+</script>
+</body>
+</html>

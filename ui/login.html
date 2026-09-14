@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SEVERANCE — Secure Authentication</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <style>
+    .login-wrapper {
+      max-width: 420px;
+      margin: 8rem auto 0 auto;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 2rem;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    }
+    .login-header {
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+    .login-header h1 {
+      font-size: 1.4rem;
+      color: #fff;
+    }
+    .login-header p {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+    }
+    .error-msg {
+      color: var(--accent-red);
+      font-size: 0.8rem;
+      margin-bottom: 1rem;
+      display: none;
+    }
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+
+<div class="login-wrapper">
+  <div class="login-header">
+    <h1>SEVERANCE</h1>
+    <p>MRPL Sovereign Air-Gapped Trust Workbench</p>
+  </div>
+
+  <div id="errorBox" class="error-msg"></div>
+
+  <!-- Primary Login Form -->
+  <form id="loginForm">
+    <label style="font-size: 0.8rem; color: var(--text-secondary);">Employee ID</label>
+    <input type="text" id="personId" placeholder="e.g. admin-001, cvo-001" required autocomplete="username">
+
+    <label style="font-size: 0.8rem; color: var(--text-secondary);">Password</label>
+    <input type="password" id="password" placeholder="Enter password" required autocomplete="current-password">
+
+    <button type="submit" class="btn-primary" style="width: 100%; margin-top: 0.5rem;">Authenticate</button>
+  </form>
+
+  <!-- Mandatory Password Change Form -->
+  <form id="changePasswordForm" class="hidden">
+    <div style="background: #3b2300; border: 1px solid #9e6a03; padding: 0.75rem; border-radius: 6px; margin-bottom: 1rem;">
+      <p style="font-size: 0.8rem; color: #ffc680; font-weight: 600;">First Login Password Update Required</p>
+      <p style="font-size: 0.75rem; color: #e6edf3;">This account was provisioned with temporary credentials. Set a permanent password to proceed.</p>
+    </div>
+
+    <label style="font-size: 0.8rem; color: var(--text-secondary);">New Password (min 8 chars)</label>
+    <input type="password" id="newPassword" placeholder="Enter new password" required minlength="8">
+
+    <label style="font-size: 0.8rem; color: var(--text-secondary);">Confirm New Password</label>
+    <input type="password" id="confirmPassword" placeholder="Confirm new password" required minlength="8">
+
+    <button type="submit" class="btn-primary" style="width: 100%; margin-top: 0.5rem;">Update Password & Continue</button>
+  </form>
+</div>
+
+<script src="/static/app.js"></script>
+<script>
+  let cachedPersonId = "";
+  let cachedOldPassword = "";
+
+  const loginForm = document.getElementById("loginForm");
+  const changePasswordForm = document.getElementById("changePasswordForm");
+  const errorBox = document.getElementById("errorBox");
+
+  function showError(msg) {
+    errorBox.textContent = msg;
+    errorBox.style.display = "block";
+  }
+
+  loginForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    errorBox.style.display = "none";
+
+    const person_id = document.getElementById("personId").value.trim();
+    const password = document.getElementById("password").value;
+    cachedPersonId = person_id;
+    cachedOldPassword = password;
+
+    try {
+      const res = await fetchAPI("/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ person_id, password }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        showError(errData.detail || "Authentication failed.");
+        return;
+      }
+
+      const data = await res.json();
+      if (data.must_change_password) {
+        loginForm.classList.add("hidden");
+        changePasswordForm.classList.remove("hidden");
+      } else {
+        window.location.href = "/app";
+      }
+    } catch (err) {
+      showError(err.message || "Network error occurred.");
+    }
+  });
+
+  changePasswordForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    errorBox.style.display = "none";
+
+    const new_password = document.getElementById("newPassword").value;
+    const confirm_password = document.getElementById("confirmPassword").value;
+
+    if (new_password !== confirm_password) {
+      showError("Passwords do not match.");
+      return;
+    }
+
+    try {
+      const res = await fetchAPI("/auth/change-password", {
+        method: "POST",
+        body: JSON.stringify({
+          old_password: cachedOldPassword,
+          new_password: new_password,
+        }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        showError(errData.detail || "Failed to update password.");
+        return;
+      }
+
+      window.location.href = "/app";
+    } catch (err) {
+      showError(err.message || "Network error occurred.");
+    }
+  });
+</script>
+</body>
+</html>
