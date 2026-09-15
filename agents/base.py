@@ -22,6 +22,13 @@ class Agent(Protocol):
         question: str,
         passages: Sequence[Passage],
         feedback: Optional[str] = None,
+        recent_context: str = "",
     ) -> Draft:
-        """Propose a synthesized draft answer and structured citations based solely on allowed passages."""
+        """Propose a synthesized draft answer and structured citations based solely on allowed passages.
+
+        `recent_context`, if given, is a short summary of the last 1-2 prior
+        turns for THIS SAME person -- for interpreting casual follow-up
+        phrasing only. It is never a citable source: every citation must
+        still be a verbatim substring of `passages`, exactly as before.
+        """
         ...

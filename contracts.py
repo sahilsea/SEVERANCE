@@ -171,6 +171,22 @@ class AskRequest(BaseModel):
         le=10,
         description="Number of top readable passages to retrieve for synthesis"
     )
+    upload_id: Optional[str] = Field(
+        default=None,
+        description=(
+            "ID of a previously uploaded ephemeral file (image or .pptx), from POST /ask/upload. "
+            "When set, the question is answered from THAT file's content instead of the governed "
+            "corpus -- no two-axis clearance gate applies, since this is the caller's own session-"
+            "scoped content, not corpus data."
+        ),
+    )
+    conversation_id: Optional[str] = Field(
+        default=None,
+        description=(
+            "ID of an existing persisted conversation (from GET /conversations) to continue. "
+            "Omit to start a new conversation -- one is created automatically from this question."
+        ),
+    )
 
 
 class AskResponse(BaseModel):
@@ -193,6 +209,10 @@ class AskResponse(BaseModel):
     ledger_row_id: Optional[int] = Field(
         default=None,
         description="Primary key of the immutable audit ledger entry recording this transaction"
+    )
+    conversation_id: Optional[str] = Field(
+        default=None,
+        description="ID of the persisted conversation this turn was saved to"
     )
 
 

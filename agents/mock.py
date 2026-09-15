@@ -30,6 +30,7 @@ class MockAgent:
         question: str,
         passages: Sequence[Passage],
         feedback: Optional[str] = None,
+        recent_context: str = "",
     ) -> Draft:
         """Generate a draft answer quoting real substrings of the provided passages."""
         self.calls += 1

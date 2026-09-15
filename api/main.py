@@ -19,8 +19,10 @@ from auth.session import COOKIE_NAME, verify_session_token
 from auth.sponsors import init_grants_tables, verify_sponsors
 from auth.users import get_principal, init_users_table
 from ingest.seed import seed_initial_admin
+from trust.conversations import init_conversations_table
 from trust.ledger import init_ledger_table
-from api.routes import admin, ask, auth, documents, grants, ledger
+from trust.reports import init_reports_table
+from api.routes import admin, ask, auth, conversations, documents, grants, ledger
 
 UI_DIR = Path(__file__).parent.parent / "ui"
 STATIC_DIR = UI_DIR / "static"
@@ -33,6 +35,8 @@ async def lifespan(app: FastAPI):
     init_ledger_table(db_path)
     init_users_table(db_path)
     init_grants_tables(db_path)
+    init_reports_table(db_path)
+    init_conversations_table(db_path)
 
     # Seed initial administrator account if database is fresh
     seeded = seed_initial_admin(db_path)
@@ -77,6 +81,7 @@ app.include_router(grants.router)
 app.include_router(ask.router)
 app.include_router(documents.router)
 app.include_router(ledger.router)
+app.include_router(conversations.router)
 
 
 @app.get("/me")

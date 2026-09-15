@@ -44,7 +44,9 @@ def login(payload: LoginRequest, response: Response):
 
 @router.post("/logout")
 def logout(response: Response):
-    """Clear active session cookie."""
+    """Clear active session cookie. Conversation history is durably stored
+    per person (see trust/conversations.py), so there is nothing transient
+    to clear here -- it's simply there again on the next login."""
     clear_session_cookie(response)
     return {"status": "logged_out"}
 

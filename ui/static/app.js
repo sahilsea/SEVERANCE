@@ -84,7 +84,11 @@ function renderMarkdown(source) {
   };
 
   for (const rawLine of lines) {
-    const line = rawLine.trim();
+    // Strip leading Markdown blockquote markers ("> ", possibly repeated/nested)
+    // so a line like "> ## Heading" is still recognized as a heading rather than
+    // falling through to a literal, unrendered paragraph. Matches against the
+    // already-HTML-escaped text, so ">" here is "&gt;".
+    const line = rawLine.trim().replace(/^(?:&gt;\s*)+/, "");
 
     if (line === "") {
       flushList();

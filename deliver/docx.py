@@ -13,12 +13,61 @@ NON-NEGOTIABLE DESIGN PRINCIPLES:
 from __future__ import annotations
 
 import io
+import re
 from pathlib import Path
 from typing import Optional
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Pt, RGBColor
 from contracts import AskResponse, Tier
+
+_BOLD_RE = re.compile(r"\*\*(.+?)\*\*")
+
+
+def _add_markdown_runs(paragraph, text: str) -> None:
+    """Split '**bold**' spans out of a line and add each as a separate run."""
+    pos = 0
+    for m in _BOLD_RE.finditer(text):
+        if m.start() > pos:
+            paragraph.add_run(text[pos:m.start()])
+        bold_run = paragraph.add_run(m.group(1))
+        bold_run.bold = True
+        pos = m.end()
+    if pos < len(text):
+        paragraph.add_run(text[pos:])
+
+
+def _add_markdown_answer(doc: Document, answer: str) -> None:
+    """Render the agent's Markdown-formatted answer as real Word formatting
+    (headings, bold, bullet/numbered lists) instead of dumping literal
+    '#'/'**' characters into a single paragraph."""
+    for raw_line in answer.split("\n"):
+        line = raw_line.strip()
+        if not line:
+            continue
+
+        heading_match = re.match(r"^(#{1,6})\s+(.*)$", line)
+        if heading_match:
+            level = min(len(heading_match.group(1)) + 1, 4)  # nest under "Verified Synthesized Findings"
+            doc.add_heading(heading_match.group(2), level=level)
+            continue
+
+        bullet_match = re.match(r"^[-*]\s+(.*)$", line)
+        if bullet_match:
+            p = doc.add_paragraph(style="List Bullet")
+            _add_markdown_runs(p, bullet_match.group(1))
+            continue
+
+        numbered_match = re.match(r"^\d+\.\s+(.*)$", line)
+        if numbered_match:
+            p = doc.add_paragraph(style="List Number")
+            _add_markdown_runs(p, numbered_match.group(1))
+            continue
+
+        p = doc.add_paragraph()
+        p.paragraph_format.line_spacing = 1.15
+        p.paragraph_format.space_after = Pt(8)
+        _add_markdown_runs(p, line)
 
 # Stamping color palette by Tier
 TIER_COLORS: dict[Tier, RGBColor] = {
@@ -115,9 +164,7 @@ def build_report(
     # Synthesis Answer Section
     # -----------------------------------------------------------------------
     doc.add_heading("Verified Synthesized Findings", level=2)
-    ans_p = doc.add_paragraph(response.answer)
-    ans_p.paragraph_format.line_spacing = 1.15
-    ans_p.paragraph_format.space_after = Pt(12)
+    _add_markdown_answer(doc, response.answer)
 
     # -----------------------------------------------------------------------
     # Citations Table (Verbatim Verified Proof)

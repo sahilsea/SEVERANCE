@@ -9,24 +9,26 @@ from __future__ import annotations
 
 import json
 import os
+import queue
+import threading
 from pathlib import Path
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
+from fastapi.responses import StreamingResponse
 from contracts import (
     AskRequest,
     AskResponse,
-    Citation,
-    Denial,
-    Label,
     Principal,
-    Tier,
 )
 from agents.mock import MockAgent
 from auth.deps import current_principal, get_db_path
 from deliver.docx import build_report, get_report_filename
-from harness.runner import run_query
+from harness.runner import run_ephemeral_query, run_query
+from ingest.ephemeral import discard_upload, get_upload, parse_upload
 from ingest.pdf import load_corpus
-from trust.ledger import get_db_connection
+from trust.reports import get_report_data
+
+MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # 20MB
 
 router = APIRouter(tags=["Document Workbench"])
 
@@ -55,8 +57,8 @@ def get_corpus(force_reload: bool = False):
 
 def get_agent():
     """Resolve drafting agent backend based on configuration."""
-    backend = os.getenv("AGENT_BACKEND", "groq").lower()
-    if backend in ["groq", "ollama", "real"]:
+    backend = os.getenv("AGENT_BACKEND", "ollama").lower()
+    if backend in ["ollama", "real"]:
         from agents.real import RealLlmAgent
         return RealLlmAgent()
     elif backend == "adk":
@@ -69,16 +71,78 @@ def get_agent():
     return MockAgent()
 
 
+@router.post("/ask/upload")
+async def upload_ephemeral_file(
+    file: UploadFile = File(...),
+    principal: Principal = Depends(current_principal),
+):
+    """Upload an ad-hoc file (image or .pptx) scoped to THIS conversation only.
+
+    Never written to corpus/manifest.json, never assigned a compartment or
+    tier, never subject to the two-axis clearance gate -- this is the
+    caller's own content, held in memory for the life of the server process
+    and scoped to their person_id (see ingest/ephemeral.py). Pass the
+    returned upload_id in a subsequent /ask or /ask/stream call to analyze it.
+    """
+    content = await file.read()
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"File too large ({len(content)} bytes, max {MAX_UPLOAD_BYTES}).",
+        )
+    try:
+        upload = parse_upload(filename=file.filename or "upload", content=content, person_id=principal.person_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+    return {
+        "upload_id": upload.upload_id,
+        "filename": upload.filename,
+        "text_chunks": len(upload.text_chunks),
+        "images": len(upload.images),
+    }
+
+
+@router.delete("/ask/upload/{upload_id}")
+def remove_ephemeral_file(
+    upload_id: str,
+    principal: Principal = Depends(current_principal),
+):
+    """Explicitly discard an ephemeral upload (e.g. user removes the attachment)."""
+    discard_upload(upload_id, principal.person_id)
+    return {"status": "discarded", "upload_id": upload_id}
+
+
 @router.post("/ask", response_model=AskResponse)
 def ask_question(
     payload: AskRequest,
     principal: Principal = Depends(current_principal),
 ):
-    """Primary workbench query endpoint."""
+    """Primary workbench query endpoint.
+
+    If payload.upload_id is set, the question is answered from that ephemeral
+    upload's content instead of the governed corpus (see run_ephemeral_query).
+    """
     db_path = get_db_path()
-    corpus = get_corpus()
     agent = get_agent()
 
+    if payload.upload_id:
+        upload = get_upload(payload.upload_id, principal.person_id)
+        if upload is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Upload not found or expired. Please attach the file again.",
+            )
+        return run_ephemeral_query(
+            question=payload.question.strip(),
+            upload=upload,
+            principal=principal,
+            agent=agent,
+            db_path=db_path,
+            conversation_id=payload.conversation_id,
+        )
+
+    corpus = get_corpus()
     response = run_query(
         request=payload,
         corpus=corpus,
@@ -89,57 +153,111 @@ def ask_question(
     return response
 
 
+@router.post("/ask/stream")
+def ask_question_stream(
+    payload: AskRequest,
+    principal: Principal = Depends(current_principal),
+):
+    """Same query as POST /ask, but streams REAL backend pipeline events as
+    newline-delimited JSON while they actually happen -- intent classification,
+    retrieval, each drafting attempt, each citation verification pass/fail --
+    instead of the client guessing at progress with a timed animation.
+
+    run_query() is synchronous (it makes real blocking HTTP calls to the local
+    Ollama server), so it runs on a background thread that pushes events
+    into a queue as they occur; this generator just relays the queue to the
+    client as it fills. The final line is always
+    {"stage": "final", "response": <the same AskResponse POST /ask returns>}.
+    """
+    db_path = get_db_path()
+    agent = get_agent()
+
+    upload = None
+    if payload.upload_id:
+        upload = get_upload(payload.upload_id, principal.person_id)
+        if upload is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Upload not found or expired. Please attach the file again.",
+            )
+
+    event_queue: "queue.Queue" = queue.Queue()
+
+    def emit(event: dict) -> None:
+        event_queue.put(event)
+
+    def worker() -> None:
+        try:
+            if upload is not None:
+                response = run_ephemeral_query(
+                    question=payload.question.strip(),
+                    upload=upload,
+                    principal=principal,
+                    agent=agent,
+                    db_path=db_path,
+                    emit=emit,
+                    conversation_id=payload.conversation_id,
+                )
+            else:
+                response = run_query(
+                    request=payload,
+                    corpus=get_corpus(),
+                    principal=principal,
+                    agent=agent,
+                    db_path=db_path,
+                    emit=emit,
+                )
+            event_queue.put({"stage": "final", "response": json.loads(response.model_dump_json())})
+        except Exception as exc:
+            event_queue.put({"stage": "error", "message": str(exc)})
+        finally:
+            event_queue.put(None)  # sentinel: no more events
+
+    threading.Thread(target=worker, daemon=True).start()
+
+    def stream():
+        while True:
+            item = event_queue.get()
+            if item is None:
+                return
+            yield json.dumps(item) + "\n"
+
+    return StreamingResponse(stream(), media_type="application/x-ndjson")
+
+
 @router.get("/report/{ledger_row_id}")
 def download_report(
     ledger_row_id: int,
     principal: Principal = Depends(current_principal),
 ):
-    """Download Word report for an answered query with 3-way classification stamping."""
+    """Download Word report for an answered query with 3-way classification stamping.
+
+    Only the employee who asked the original question (or an administrator) may
+    download it. The full answer/citations/denials come from trust/reports.py,
+    NOT from the audit ledger — the ledger is readable by every authenticated
+    user as a transparency log, so it only ever stores a truncated preview.
+    """
     db_path = get_db_path()
-    conn = get_db_connection(db_path)
-    try:
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM ledger WHERE row_id = ?;", (ledger_row_id,))
-        row = cursor.fetchone()
-        if not row:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ledger record not found.")
 
-        action = row["action"]
-        if action != "ASK_ANSWERED":
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Cannot generate deliverable report for query outcome '{action}'. Reports are only generated for verified answers.",
-            )
-
-        details = json.loads(row["details"])
-        question = details.get("question", "Inquiry")
-
-        # Reconstruct AskResponse from ledger details
-        effective_tier = Tier(details.get("effective_tier", Tier.INTERNAL.value))
-        effective_comps = frozenset()
-        if "effective_compartments" in details:
-            from contracts import Compartment
-            effective_comps = frozenset(Compartment(c) for c in details["effective_compartments"])
-
-        effective_label = Label(tier=effective_tier, compartments=effective_comps)
-
-        # Mock citations or answer preview for report rebuilding
-        ask_response = AskResponse(
-            status="answered",
-            answer=details.get("answer_preview", "Synthesis complete."),
-            citations=[],
-            denials=[],
-            effective_label=effective_label,
-            ledger_row_id=ledger_row_id,
+    report = get_report_data(db_path, ledger_row_id)
+    if not report:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No report data found for this ledger row. It may predate report storage, or the query was not answered.",
         )
 
-        docx_bytes = build_report(ask_response, question=question)
-        filename = get_report_filename(ask_response)
-
-        return Response(
-            content=docx_bytes,
-            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    if report["person_id"] != principal.person_id and not principal.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You may only download reports for your own queries.",
         )
-    finally:
-        conn.close()
+
+    ask_response = AskResponse.model_validate(report["response"])
+    docx_bytes = build_report(ask_response, question=report["question"])
+    filename = get_report_filename(ask_response)
+
+    return Response(
+        content=docx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
