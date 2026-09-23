@@ -2,6 +2,39 @@
  * SEVERANCE Client Application Logic
  */
 
+const THEME_STORAGE_KEY = "severance-theme";
+
+/** Applies a theme (persisted to localStorage) and syncs every toggle
+ * button's icon on the page. The actual FIRST paint's theme is set by a
+ * small blocking inline script at the top of each page's <head> (before
+ * this file loads) to avoid a flash of the wrong theme -- this function is
+ * what the toggle button itself calls afterward, and what syncs icons once
+ * the DOM is ready. */
+function setTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, theme);
+  } catch (e) { /* private browsing / storage disabled -- theme just won't persist */ }
+  document.querySelectorAll(".theme-toggle-icon").forEach(icon => {
+    icon.textContent = theme === "light" ? "dark_mode" : "light_mode";
+  });
+}
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute("data-theme") || "dark";
+  setTheme(current === "dark" ? "light" : "dark");
+}
+
+/** Call once on page load to sync toggle icon(s) to whatever theme the
+ * blocking init script already applied (so the icon doesn't briefly show
+ * the wrong state before this file finishes loading). */
+function syncThemeToggleIcon() {
+  const current = document.documentElement.getAttribute("data-theme") || "dark";
+  document.querySelectorAll(".theme-toggle-icon").forEach(icon => {
+    icon.textContent = current === "light" ? "dark_mode" : "light_mode";
+  });
+}
+
 async function fetchAPI(url, options = {}) {
   const defaultOptions = {
     headers: {
@@ -74,6 +107,9 @@ function renderMarkdown(source) {
   const htmlParts = [];
   let listBuffer = [];
   let listType = null;
+  let inCodeBlock = false;
+  let codeBuffer = [];
+  let codeLang = "";
 
   const flushList = () => {
     if (listBuffer.length > 0) {
@@ -84,6 +120,31 @@ function renderMarkdown(source) {
   };
 
   for (const rawLine of lines) {
+    // Fenced code blocks (```lang ... ```): matched against the RAW line
+    // (not blockquote-stripped, not inline-formatted) since code content
+    // must render verbatim -- no bold/italic/inline-code processing inside
+    // a block that's already a code block. `escaped` already HTML-escaped
+    // this whole source once at the top, so code content here is already
+    // safe to insert as-is (no injection risk from an LLM answer).
+    const fenceMatch = rawLine.trim().match(/^```([\w+-]*)\s*$/);
+    if (fenceMatch) {
+      if (!inCodeBlock) {
+        flushList();
+        inCodeBlock = true;
+        codeLang = fenceMatch[1] || "";
+        codeBuffer = [];
+      } else {
+        inCodeBlock = false;
+        const langClass = codeLang ? ` class="language-${escapeHtml(codeLang)}"` : "";
+        htmlParts.push(`<pre><code${langClass}>${codeBuffer.join("\n")}</code></pre>`);
+      }
+      continue;
+    }
+    if (inCodeBlock) {
+      codeBuffer.push(rawLine);
+      continue;
+    }
+
     // Strip leading Markdown blockquote markers ("> ", possibly repeated/nested)
     // so a line like "> ## Heading" is still recognized as a heading rather than
     // falling through to a literal, unrendered paragraph. Matches against the
@@ -118,6 +179,11 @@ function renderMarkdown(source) {
 
     flushList();
     htmlParts.push(`<p>${inline(line)}</p>`);
+  }
+  if (inCodeBlock && codeBuffer.length > 0) {
+    // Generation ended mid-block (e.g. hit a length cap) -- flush what was
+    // captured rather than silently dropping it.
+    htmlParts.push(`<pre><code>${codeBuffer.join("\n")}</code></pre>`);
   }
   flushList();
 

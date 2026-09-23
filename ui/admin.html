@@ -4,31 +4,87 @@
 <meta charset="utf-8">
 <meta content="width=device-width, initial-scale=1.0" name="viewport">
 <title>SEVERANCE — Access &amp; Clearance</title>
+<script>
+  (function () {
+    var t;
+    try { t = localStorage.getItem("severance-theme"); } catch (e) {}
+    document.documentElement.setAttribute("data-theme", t || "dark");
+  })();
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
-<style>@layer base { html, body { margin: 0; padding: 0; } } ::-webkit-scrollbar { display: none; }</style>
+<style>
+  :root {
+    --color-surface: 15 18 22; --color-surface-canvas: 15 18 22;
+    --color-surface-raised: 23 27 33; --color-surface-subtle: 29 34 42; --color-surface-container: 35 40 51;
+    --color-surface-container-highest: 51 58 71; --color-surface-container-lowest: 23 27 33;
+    --color-text-primary: 237 239 243; --color-text-secondary: 167 174 187; --color-text-tertiary: 118 126 140;
+    --color-on-surface: 237 239 243; --color-border-subtle: 43 49 60;
+    --color-primary: 62 111 168; --color-primary-container: 46 74 110; --color-on-primary: 255 255 255;
+    --color-secondary: 74 114 144; --color-on-secondary: 255 255 255; --color-on-secondary-container: 191 217 234;
+    --color-inverse-surface: 237 239 243; --color-inverse-on-surface: 28 32 41;
+    --color-error: 229 83 75;
+    --color-clearance-public: 139 150 165; --color-clearance-internal: 84 130 174; --color-clearance-confidential: 217 163 67; --color-clearance-secret: 226 102 92;
+    --color-compartment-hse: 95 174 132; --color-compartment-vigilance: 139 127 199; --color-compartment-legal: 183 154 120;
+    --color-compartment-commercial: 79 156 184; --color-compartment-technical: 135 146 163;
+    --shadow-tint: 0 0 0;
+    color-scheme: dark;
+  }
+  :root[data-theme="light"] {
+    --color-surface: 244 246 250; --color-surface-canvas: 244 246 250;
+    --color-surface-raised: 255 255 255; --color-surface-subtle: 234 238 245; --color-surface-container: 226 231 240;
+    --color-surface-container-highest: 203 211 224; --color-surface-container-lowest: 255 255 255;
+    --color-text-primary: 15 23 42; --color-text-secondary: 51 65 85; --color-text-tertiary: 100 116 139;
+    --color-on-surface: 15 23 42; --color-border-subtle: 218 224 234;
+    --color-primary: 37 99 235; --color-primary-container: 29 78 216; --color-on-primary: 255 255 255;
+    --color-secondary: 14 116 144; --color-on-secondary: 255 255 255; --color-on-secondary-container: 21 94 117;
+    --color-inverse-surface: 28 32 41; --color-inverse-on-surface: 233 235 239;
+    --color-error: 220 38 38;
+    --color-clearance-public: 100 116 139; --color-clearance-internal: 37 99 235; --color-clearance-confidential: 205 110 0; --color-clearance-secret: 220 38 38;
+    --color-compartment-hse: 5 150 105; --color-compartment-vigilance: 124 58 237; --color-compartment-legal: 180 83 9;
+    --color-compartment-commercial: 8 145 178; --color-compartment-technical: 71 85 105;
+    --shadow-tint: 15 23 42;
+    color-scheme: light;
+  }
+  @layer base { html, body { margin: 0; padding: 0; } } ::-webkit-scrollbar { display: none; }
+  /* When a user can see only ONE of the two control panels (the usual case:
+     admins aren't sponsors, sponsors aren't admins), that panel spans the
+     full row and lays out as intro-left / form-right instead of leaving
+     half the row empty. Phones keep the stacked layout. */
+  @media (min-width: 768px) {
+    .panel-wide { grid-column: 1 / -1; }
+    .panel-wide .panel-body { display: grid; grid-template-columns: minmax(220px, 290px) 1fr; column-gap: 2.5rem; align-items: start; }
+    .panel-wide .panel-intro { grid-column: 1; grid-row: 1 / span 2; }
+    .panel-wide .panel-body > form, .panel-wide .panel-body > #provisionReveal { grid-column: 2; margin-top: 0; }
+    .panel-wide .panel-intro > .mb-space-sm { margin-bottom: 0; }
+    .panel-wide #provisionForm { display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem 1rem; }
+    .panel-wide #provisionForm > * { margin-top: 0 !important; }
+    .panel-wide #provisionForm > .field-full, .panel-wide #provisionForm > .pt-space-xs { grid-column: 1 / -1; }
+    .panel-wide #provisionReveal { margin-top: 1rem; }
+  }
+</style>
 <script src="https://cdn.tailwindcss.com"></script>
 <script id="tailwind-config">
 tailwind.config = { theme: { extend: {
-  "colors": { "secondary": "#436086", "on-secondary-container": "#3c597f", "on-secondary": "#ffffff", "surface-container": "#f0edea", "clearance-internal": "#456E82", "surface-canvas": "#FAF9F5", "text-tertiary": "#8F8D86", "surface-container-highest": "#e5e2de", "inverse-surface": "#31302e", "inverse-on-surface": "#f3f0ed", "compartment-commercial": "#3D6273", "clearance-confidential": "#B07D38", "primary-container": "#c15238", "primary": "#a03a23", "compartment-legal": "#7A5C3E", "surface-raised": "#FFFFFF", "clearance-public": "#6A7B76", "on-surface": "#1c1c1a", "text-primary": "#20201E", "text-secondary": "#666560", "compartment-hse": "#4D7358", "error": "#ba1a1a", "surface-container-lowest": "#ffffff", "on-primary": "#ffffff", "compartment-technical": "#55606B", "clearance-secret": "#A84332", "surface-subtle": "#F3F1EC", "border-subtle": "#E6E4DC", "surface": "#fcf9f5", "compartment-vigilance": "#5C527F" },
+  "colors": { "secondary": "rgb(var(--color-secondary) / <alpha-value>)", "on-secondary-container": "rgb(var(--color-on-secondary-container) / <alpha-value>)", "on-secondary": "rgb(var(--color-on-secondary) / <alpha-value>)", "surface-container": "rgb(var(--color-surface-container) / <alpha-value>)", "clearance-internal": "rgb(var(--color-clearance-internal) / <alpha-value>)", "surface-canvas": "rgb(var(--color-surface-canvas) / <alpha-value>)", "text-tertiary": "rgb(var(--color-text-tertiary) / <alpha-value>)", "surface-container-highest": "rgb(var(--color-surface-container-highest) / <alpha-value>)", "inverse-surface": "rgb(var(--color-inverse-surface) / <alpha-value>)", "inverse-on-surface": "rgb(var(--color-inverse-on-surface) / <alpha-value>)", "compartment-commercial": "rgb(var(--color-compartment-commercial) / <alpha-value>)", "clearance-confidential": "rgb(var(--color-clearance-confidential) / <alpha-value>)", "primary-container": "rgb(var(--color-primary-container) / <alpha-value>)", "primary": "rgb(var(--color-primary) / <alpha-value>)", "compartment-legal": "rgb(var(--color-compartment-legal) / <alpha-value>)", "surface-raised": "rgb(var(--color-surface-raised) / <alpha-value>)", "clearance-public": "rgb(var(--color-clearance-public) / <alpha-value>)", "on-surface": "rgb(var(--color-on-surface) / <alpha-value>)", "text-primary": "rgb(var(--color-text-primary) / <alpha-value>)", "text-secondary": "rgb(var(--color-text-secondary) / <alpha-value>)", "compartment-hse": "rgb(var(--color-compartment-hse) / <alpha-value>)", "error": "rgb(var(--color-error) / <alpha-value>)", "surface-container-lowest": "rgb(var(--color-surface-container-lowest) / <alpha-value>)", "on-primary": "rgb(var(--color-on-primary) / <alpha-value>)", "compartment-technical": "rgb(var(--color-compartment-technical) / <alpha-value>)", "clearance-secret": "rgb(var(--color-clearance-secret) / <alpha-value>)", "surface-subtle": "rgb(var(--color-surface-subtle) / <alpha-value>)", "border-subtle": "rgb(var(--color-border-subtle) / <alpha-value>)", "surface": "rgb(var(--color-surface) / <alpha-value>)", "compartment-vigilance": "rgb(var(--color-compartment-vigilance) / <alpha-value>)" },
   "borderRadius": { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
   "spacing": { "space-xl": "2.5rem", "space-md": "1rem", "space-sm": "0.5rem", "space-xs": "0.25rem", "space-lg": "1.5rem" },
   "fontFamily": { "headline-lg": ["Newsreader"], "headline-sm": ["Newsreader"], "body-md": ["Inter"], "title-sm": ["Inter"], "label-md": ["JetBrains Mono"], "label-sm": ["JetBrains Mono"], "body-sm": ["Inter"] },
   "fontSize": {
-    "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.015em", "fontWeight": "400" }],
-    "headline-sm": ["20px", { "lineHeight": "28px", "fontWeight": "500" }],
-    "body-md": ["15px", { "lineHeight": "26px", "fontWeight": "400" }],
-    "title-sm": ["14px", { "lineHeight": "20px", "fontWeight": "600" }],
-    "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.03em", "fontWeight": "500" }],
-    "label-sm": ["11px", { "lineHeight": "14px", "letterSpacing": "0.04em", "fontWeight": "500" }],
-    "body-sm": ["13px", { "lineHeight": "20px", "fontWeight": "400" }]
+    "headline-lg": ["38px", { "lineHeight": "46px", "letterSpacing": "-0.015em", "fontWeight": "400" }],
+    "headline-sm": ["24px", { "lineHeight": "32px", "fontWeight": "500" }],
+    "body-md": ["18px", { "lineHeight": "29px", "fontWeight": "400" }],
+    "title-sm": ["17px", { "lineHeight": "24px", "fontWeight": "600" }],
+    "label-md": ["14px", { "lineHeight": "18px", "letterSpacing": "0.03em", "fontWeight": "500" }],
+    "label-sm": ["13px", { "lineHeight": "16px", "letterSpacing": "0.04em", "fontWeight": "500" }],
+    "body-sm": ["16px", { "lineHeight": "24px", "fontWeight": "400" }]
   }
 } } };
 </script>
 </head>
 <body class="bg-surface font-body-md text-body-md text-on-surface min-h-screen">
 
-<header class="fixed top-0 left-0 right-0 z-50 bg-surface/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(32,32,30,0.04)]">
+<header class="fixed top-0 left-0 right-0 z-50 bg-surface/95 shadow-[0_1px_8px_rgb(var(--shadow-tint)/0.08)]">
 <div class="h-16 w-full px-space-lg flex items-center justify-between gap-space-md">
 <div class="flex items-center gap-space-lg">
 <div class="flex items-center gap-space-sm">
@@ -55,6 +111,7 @@ tailwind.config = { theme: { extend: {
 </div>
 </div>
 <div class="flex items-center gap-space-sm">
+<button aria-label="Toggle light/dark theme" class="w-9 h-9 rounded-lg flex items-center justify-center text-text-secondary hover:text-text-primary hover:bg-surface-subtle transition-colors" onclick="toggleTheme()" title="Toggle light/dark theme" type="button"><span class="material-symbols-outlined text-[18px] theme-toggle-icon">light_mode</span></button>
 <button class="font-body-sm text-body-sm text-text-secondary hover:text-text-primary px-space-sm py-space-xs rounded transition-colors" onclick="doLogout()" type="button">Sign Out</button>
 <div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div>
 </div>
@@ -106,11 +163,12 @@ Account provisioning and pay-grade assignments are restricted to System Administ
 <div class="grid grid-cols-1 md:grid-cols-2 gap-space-lg mb-space-xl">
 <!-- PANEL 1: Admin Account Provisioning -->
 <div class="bg-surface-raised p-space-lg rounded-xl shadow-sm flex flex-col justify-between" id="adminPanel" style="display:none;">
-<div>
+<div class="panel-body">
+<div class="panel-intro">
 <div class="space-y-space-sm">
-<div class="flex items-center justify-between">
+<div class="flex flex-wrap items-center justify-between gap-x-space-sm gap-y-1">
 <span class="font-label-sm text-label-sm text-text-tertiary uppercase tracking-wider">Authentication Subsystem</span>
-<span class="font-label-sm text-label-sm px-2 py-0.5 bg-surface-subtle text-text-secondary rounded">SysAdmin Only</span>
+<span class="font-label-sm text-label-sm px-2 py-0.5 bg-surface-subtle text-text-secondary rounded whitespace-nowrap">SysAdmin Only</span>
 </div>
 <h2 class="font-headline-sm text-headline-sm text-text-primary">Provision New Employee</h2>
 <p class="font-body-sm text-body-sm text-text-secondary">Notice: There are no compartment checkboxes here — admins cannot grant compartments.</p>
@@ -119,11 +177,12 @@ Account provisioning and pay-grade assignments are restricted to System Administ
 <button class="flex-1 py-1 px-2 rounded font-title-sm text-[12px] bg-surface-raised text-text-primary shadow-sm transition-colors text-center" id="tabProvision" type="button">Provision Employee</button>
 <button class="flex-1 py-1 px-2 rounded font-title-sm text-[12px] text-text-secondary hover:text-text-primary transition-colors text-center" id="tabReset" type="button">Reset Password</button>
 </div>
+</div>
 
 <form class="space-y-space-sm hidden" id="resetForm">
 <div class="space-y-1">
 <label class="font-label-sm text-label-sm text-text-secondary uppercase">Target Employee ID</label>
-<input class="w-full h-[38px] px-3 bg-surface-subtle focus:bg-surface rounded-lg font-label-md text-label-md text-text-primary outline-none focus:shadow-[0_0_0_1px_rgba(32,32,30,0.3)] transition-all" id="resetEmpId" placeholder="e.g. emp-105" required type="text">
+<input class="w-full h-[38px] px-3 bg-surface-subtle focus:bg-surface rounded-lg font-label-md text-label-md text-text-primary outline-none focus:shadow-[0_0_0_1px_rgb(var(--shadow-tint)/0.4)] transition-all" id="resetEmpId" placeholder="e.g. emp-105" required type="text">
 </div>
 <div class="pt-space-xs">
 <button class="w-full h-[40px] bg-secondary hover:bg-on-secondary-container text-on-secondary font-title-sm text-title-sm rounded-lg flex items-center justify-center gap-space-xs transition-colors shadow-sm cursor-pointer" type="submit">
@@ -135,19 +194,19 @@ Account provisioning and pay-grade assignments are restricted to System Administ
 <form class="space-y-space-sm" id="provisionForm">
 <div class="space-y-1">
 <label class="font-label-sm text-label-sm text-text-secondary uppercase">Employee ID</label>
-<input class="w-full h-[38px] px-3 bg-surface-subtle focus:bg-surface rounded-lg font-label-md text-label-md text-text-primary outline-none focus:shadow-[0_0_0_1px_rgba(32,32,30,0.3)] transition-all" id="provId" placeholder="e.g. emp-105" required type="text">
+<input class="w-full h-[38px] px-3 bg-surface-subtle focus:bg-surface rounded-lg font-label-md text-label-md text-text-primary outline-none focus:shadow-[0_0_0_1px_rgb(var(--shadow-tint)/0.4)] transition-all" id="provId" placeholder="e.g. emp-105" required type="text">
 </div>
 <div class="space-y-1">
 <label class="font-label-sm text-label-sm text-text-secondary uppercase">Full Name</label>
-<input class="w-full h-[38px] px-3 bg-surface-subtle focus:bg-surface rounded-lg font-body-md text-body-md text-text-primary outline-none focus:shadow-[0_0_0_1px_rgba(32,32,30,0.3)] transition-all" id="provName" placeholder="e.g. Sunita Hegde" required type="text">
+<input class="w-full h-[38px] px-3 bg-surface-subtle focus:bg-surface rounded-lg font-body-md text-body-md text-text-primary outline-none focus:shadow-[0_0_0_1px_rgb(var(--shadow-tint)/0.4)] transition-all" id="provName" placeholder="e.g. Sunita Hegde" required type="text">
 </div>
-<div class="space-y-1">
+<div class="space-y-1 field-full">
 <label class="font-label-sm text-label-sm text-text-secondary uppercase">Designation / Role Title</label>
-<input class="w-full h-[38px] px-3 bg-surface-subtle focus:bg-surface rounded-lg font-body-md text-body-md text-text-primary outline-none focus:shadow-[0_0_0_1px_rgba(32,32,30,0.3)] transition-all" id="provRole" placeholder="e.g. Deputy Manager (Refinery)" required type="text">
+<input class="w-full h-[38px] px-3 bg-surface-subtle focus:bg-surface rounded-lg font-body-md text-body-md text-text-primary outline-none focus:shadow-[0_0_0_1px_rgb(var(--shadow-tint)/0.4)] transition-all" id="provRole" placeholder="e.g. Deputy Manager (Refinery)" required type="text">
 </div>
-<div class="space-y-1">
+<div class="space-y-1 field-full">
 <label class="font-label-sm text-label-sm text-text-secondary uppercase">Authorized Pay Grade</label>
-<select class="w-full h-[38px] px-3 bg-surface-subtle focus:bg-surface rounded-lg font-body-md text-body-md text-text-primary outline-none focus:shadow-[0_0_0_1px_rgba(32,32,30,0.3)] transition-all cursor-pointer" id="provGrade">
+<select class="w-full h-[38px] px-3 bg-surface-subtle focus:bg-surface rounded-lg font-body-md text-body-md text-text-primary outline-none focus:shadow-[0_0_0_1px_rgb(var(--shadow-tint)/0.4)] transition-all cursor-pointer" id="provGrade">
 <optgroup label="Management Officers">
 <option value="A">Grade A — Executive / Assistant Manager (Rank 7)</option>
 <option value="B">Grade B — Manager (Rank 8)</option>
@@ -197,9 +256,9 @@ Account provisioning and pay-grade assignments are restricted to System Administ
 
 <!-- PANEL 2: Sponsor Compartment Controls -->
 <div class="bg-surface-raised p-space-lg rounded-xl shadow-sm flex flex-col justify-between" id="sponsorPanel" style="display:none;">
-<div>
-<div class="space-y-space-sm">
-<div class="flex items-center justify-between">
+<div class="panel-body">
+<div class="panel-intro space-y-space-sm">
+<div class="flex flex-wrap items-center justify-between gap-x-space-sm gap-y-1">
 <span class="font-label-sm text-label-sm text-text-tertiary uppercase tracking-wider">Delegated Security</span>
 <div class="flex items-center gap-1" id="sponsorListBadge"></div>
 </div>
@@ -209,11 +268,11 @@ Account provisioning and pay-grade assignments are restricted to System Administ
 <form class="mt-space-md space-y-space-sm" id="grantForm">
 <div class="space-y-1">
 <label class="font-label-sm text-label-sm text-text-secondary uppercase">Target Employee ID</label>
-<input class="w-full h-[38px] px-3 bg-surface-subtle focus:bg-surface rounded-lg font-label-md text-label-md text-text-primary outline-none focus:shadow-[0_0_0_1px_rgba(32,32,30,0.3)] transition-all" id="targetPersonId" placeholder="e.g. emp-105" required type="text">
+<input class="w-full h-[38px] px-3 bg-surface-subtle focus:bg-surface rounded-lg font-label-md text-label-md text-text-primary outline-none focus:shadow-[0_0_0_1px_rgb(var(--shadow-tint)/0.4)] transition-all" id="targetPersonId" placeholder="e.g. emp-105" required type="text">
 </div>
 <div class="space-y-1">
 <label class="font-label-sm text-label-sm text-text-secondary uppercase">Compartment to Grant</label>
-<select class="w-full h-[38px] px-3 bg-surface-subtle focus:bg-surface rounded-lg font-body-md text-body-md text-text-primary outline-none focus:shadow-[0_0_0_1px_rgba(32,32,30,0.3)] transition-all cursor-pointer" id="sponsoredCompSelect"></select>
+<select class="w-full h-[38px] px-3 bg-surface-subtle focus:bg-surface rounded-lg font-body-md text-body-md text-text-primary outline-none focus:shadow-[0_0_0_1px_rgb(var(--shadow-tint)/0.4)] transition-all cursor-pointer" id="sponsoredCompSelect"></select>
 </div>
 <div class="pt-space-xs flex items-center gap-space-sm">
 <button class="flex-1 h-[40px] bg-secondary hover:bg-on-secondary-container text-on-secondary font-title-sm text-title-sm rounded-lg flex items-center justify-center gap-space-xs transition-colors shadow-sm cursor-pointer" id="grantBtn" type="button">
@@ -236,7 +295,7 @@ Account provisioning and pay-grade assignments are restricted to System Administ
 </div>
 <div class="flex items-center gap-space-sm">
 <div class="relative">
-<input class="h-[34px] pl-8 pr-3 bg-surface-raised rounded-lg font-body-sm text-body-sm text-text-primary outline-none shadow-sm focus:shadow-[0_0_0_1px_rgba(32,32,30,0.3)] transition-all" id="searchDirectory" placeholder="Filter by ID, name, grade…" type="text">
+<input class="h-[34px] pl-8 pr-3 bg-surface-raised rounded-lg font-body-sm text-body-sm text-text-primary outline-none shadow-sm focus:shadow-[0_0_0_1px_rgb(var(--shadow-tint)/0.4)] transition-all" id="searchDirectory" placeholder="Filter by ID, name, grade…" type="text">
 <span class="material-symbols-outlined absolute left-2.5 top-2 text-text-tertiary text-[16px]">search</span>
 </div>
 <button class="h-[34px] px-3 bg-surface-raised hover:bg-surface-subtle text-text-primary font-title-sm text-title-sm rounded-lg flex items-center gap-1 shadow-sm transition-colors cursor-pointer" id="exportBtn" type="button">
@@ -284,7 +343,7 @@ Account provisioning and pay-grade assignments are restricted to System Administ
 <span class="font-body-sm text-body-sm" id="toastMessage"></span>
 </div>
 
-<script src="/static/app.js"></script>
+<script src="/static/app.js?v=3"></script>
 <script>
 const GRADES = ["A","B","C","D","E","F","G","H","I","JM1","JM2","JM3","S1","S2","S3","S4","TS1","TS2"];
 const COMP_COLOR = { hse: "compartment-hse", vigilance: "compartment-vigilance", legal: "compartment-legal", commercial: "compartment-commercial", technical: "compartment-technical" };
@@ -309,6 +368,9 @@ function showToast(message, isError = false) {
 }
 
 async function init() {
+  // Guarded: a stale cached app.js without this function must not throw and
+  // abort the rest of init() (loading the principal, users, etc.).
+  if (typeof syncThemeToggleIcon === "function") syncThemeToggleIcon();
   currentPrincipal = await getCurrentPrincipal();
   if (!currentPrincipal) return;
 
@@ -334,6 +396,11 @@ async function init() {
       c => `<span class="font-label-sm text-label-sm px-1.5 py-0.5 rounded bg-${COMP_COLOR[c]}/10 text-${COMP_COLOR[c]} uppercase font-medium">${c}</span>`
     ).join(" ");
   }
+
+  const visiblePanels = ["adminPanel", "sponsorPanel"]
+    .map(id => document.getElementById(id))
+    .filter(el => el.style.display !== "none");
+  if (visiblePanels.length === 1) visiblePanels[0].classList.add("panel-wide");
 
   loadUsers();
 }

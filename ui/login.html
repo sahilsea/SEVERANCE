@@ -4,27 +4,61 @@
 <meta charset="utf-8">
 <meta content="width=device-width, initial-scale=1.0" name="viewport">
 <title>SEVERANCE — Secure Authentication</title>
+<script>
+  (function () {
+    var t;
+    try { t = localStorage.getItem("severance-theme"); } catch (e) {}
+    document.documentElement.setAttribute("data-theme", t || "dark");
+  })();
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
-<style>@layer base { html, body { margin: 0; padding: 0; } } ::-webkit-scrollbar { display: none; }</style>
+<style>
+  :root {
+    --color-surface: 15 18 22; --color-surface-canvas: 15 18 22; --color-surface-raised: 23 27 33; --color-surface-subtle: 29 34 42;
+    --color-text-primary: 237 239 243; --color-text-secondary: 167 174 187; --color-text-tertiary: 118 126 140;
+    --color-border-subtle: 43 49 60;
+    --color-primary: 62 111 168; --color-primary-container: 46 74 110; --color-on-primary: 255 255 255;
+    --color-secondary: 74 114 144;
+    --color-inverse-surface: 237 239 243; --color-inverse-on-surface: 28 32 41;
+    --color-error: 229 83 75;
+    --color-clearance-internal: 84 130 174; --color-clearance-confidential: 217 163 67;
+    --color-compartment-hse: 95 174 132;
+    color-scheme: dark;
+  }
+  :root[data-theme="light"] {
+    --color-surface: 244 246 250; --color-surface-canvas: 244 246 250; --color-surface-raised: 255 255 255; --color-surface-subtle: 234 238 245;
+    --color-text-primary: 15 23 42; --color-text-secondary: 51 65 85; --color-text-tertiary: 100 116 139;
+    --color-border-subtle: 218 224 234;
+    --color-primary: 37 99 235; --color-primary-container: 29 78 216; --color-on-primary: 255 255 255;
+    --color-secondary: 14 116 144;
+    --color-inverse-surface: 28 32 41; --color-inverse-on-surface: 233 235 239;
+    --color-error: 220 38 38;
+    --color-clearance-internal: 37 99 235; --color-clearance-confidential: 205 110 0;
+    --color-compartment-hse: 5 150 105;
+    color-scheme: light;
+  }
+  @layer base { html, body { margin: 0; padding: 0; } } ::-webkit-scrollbar { display: none; }
+</style>
 <script src="https://cdn.tailwindcss.com"></script>
 <script id="tailwind-config">
 tailwind.config = { theme: { extend: {
-  "colors": { "secondary": "#436086", "clearance-internal": "#456E82", "clearance-confidential": "#B07D38", "surface-canvas": "#FAF9F5", "text-tertiary": "#8F8D86", "primary": "#a03a23", "primary-container": "#c15238", "on-primary": "#ffffff", "surface-raised": "#FFFFFF", "compartment-hse": "#4D7358", "surface-subtle": "#F3F1EC", "border-subtle": "#E6E4DC", "surface": "#fcf9f5", "text-primary": "#20201E", "text-secondary": "#666560", "error": "#ba1a1a", "inverse-surface": "#31302e", "inverse-on-surface": "#f3f0ed" },
+  "colors": { "secondary": "rgb(var(--color-secondary) / <alpha-value>)", "clearance-internal": "rgb(var(--color-clearance-internal) / <alpha-value>)", "clearance-confidential": "rgb(var(--color-clearance-confidential) / <alpha-value>)", "surface-canvas": "rgb(var(--color-surface-canvas) / <alpha-value>)", "text-tertiary": "rgb(var(--color-text-tertiary) / <alpha-value>)", "primary": "rgb(var(--color-primary) / <alpha-value>)", "primary-container": "rgb(var(--color-primary-container) / <alpha-value>)", "on-primary": "rgb(var(--color-on-primary) / <alpha-value>)", "surface-raised": "rgb(var(--color-surface-raised) / <alpha-value>)", "compartment-hse": "rgb(var(--color-compartment-hse) / <alpha-value>)", "surface-subtle": "rgb(var(--color-surface-subtle) / <alpha-value>)", "border-subtle": "rgb(var(--color-border-subtle) / <alpha-value>)", "surface": "rgb(var(--color-surface) / <alpha-value>)", "text-primary": "rgb(var(--color-text-primary) / <alpha-value>)", "text-secondary": "rgb(var(--color-text-secondary) / <alpha-value>)", "error": "rgb(var(--color-error) / <alpha-value>)", "inverse-surface": "rgb(var(--color-inverse-surface) / <alpha-value>)", "inverse-on-surface": "rgb(var(--color-inverse-on-surface) / <alpha-value>)" },
   "borderRadius": { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
   "spacing": { "space-xl": "2.5rem", "space-md": "1rem", "space-sm": "0.5rem", "space-xs": "0.25rem", "margin-mobile": "1rem", "space-lg": "1.5rem" },
   "fontFamily": { "headline-md": ["Newsreader"], "label-md": ["JetBrains Mono"], "label-sm": ["JetBrains Mono"], "body-sm": ["Inter"], "title-sm": ["Inter"] },
   "fontSize": {
-    "headline-md": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "400" }],
-    "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.03em", "fontWeight": "500" }],
-    "label-sm": ["11px", { "lineHeight": "14px", "letterSpacing": "0.04em", "fontWeight": "500" }],
-    "body-sm": ["13px", { "lineHeight": "20px", "fontWeight": "400" }],
-    "title-sm": ["14px", { "lineHeight": "20px", "fontWeight": "600" }]
+    "headline-md": ["29px", { "lineHeight": "38px", "letterSpacing": "-0.01em", "fontWeight": "400" }],
+    "label-md": ["14px", { "lineHeight": "18px", "letterSpacing": "0.03em", "fontWeight": "500" }],
+    "label-sm": ["13px", { "lineHeight": "16px", "letterSpacing": "0.04em", "fontWeight": "500" }],
+    "body-sm": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+    "title-sm": ["17px", { "lineHeight": "24px", "fontWeight": "600" }]
   }
 } } };
 </script>
 </head>
 <body class="bg-surface font-body-sm text-body-sm text-text-primary min-h-screen">
+<button aria-label="Toggle light/dark theme" class="fixed top-space-md right-space-md z-50 w-9 h-9 rounded-lg flex items-center justify-center text-text-secondary hover:text-text-primary hover:bg-surface-subtle transition-colors" onclick="toggleTheme()" title="Toggle light/dark theme" type="button"><span class="material-symbols-outlined text-[18px] theme-toggle-icon">light_mode</span></button>
 <main class="w-full bg-surface min-h-screen flex items-center justify-center p-space-md">
 <div class="flex flex-col w-full items-center justify-center py-space-xl px-margin-mobile min-h-[calc(100vh-4rem)]">
 <div class="relative w-full max-w-[460px] flex flex-col items-center">
@@ -141,8 +175,15 @@ MRPL RTI § 10 Passage Severability Engine
 </div>
 </div>
 </main>
-<script src="/static/app.js"></script>
+<script src="/static/app.js?v=3"></script>
 <script>
+  // Guarded: if a browser has an old cached copy of app.js (from before this
+  // function existed) this must NOT throw -- a ReferenceError here would
+  // abort this entire script block, silently breaking the login form's
+  // submit handler further down with it. See api/main.py's no-store policy
+  // on /static/* for the actual fix to the caching itself.
+  if (typeof syncThemeToggleIcon === "function") syncThemeToggleIcon();
+
   let cachedOldPassword = "";
 
   function togglePassVisibility(inputId) {

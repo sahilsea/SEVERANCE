@@ -3,11 +3,17 @@
 NON-NEGOTIABLE DESIGN PRINCIPLES:
 1. One Passage per page: Citations are page-scoped, making 'cited from page 14'
    deterministic and checkable.
-2. Silent empty strings are banned: If every page of a PDF is blank, raise a loud
-   ScannedPdfError naming the file. Silent empty strings cause models to hallucinate
-   answers about documents they never read.
+2. Silent empty strings are banned: If every page of a PDF is blank (including
+   after the local OCR fallback below), raise a loud ScannedPdfError naming
+   the file. Silent empty strings cause models to hallucinate answers about
+   documents they never read.
 3. Graceful corpus loading: If the documents directory is empty or missing,
    log an informative message rather than failing with a stack trace.
+4. Scanned pages get a local OCR fallback (ingest/ocr.py, Tesseract --
+   fully offline), tried per-page ONLY when pypdf's direct text-layer
+   extraction comes back empty for that page. A mixed document (some real
+   text pages, some scanned pages) is handled correctly page-by-page, not
+   as an all-or-nothing choice for the whole file.
 """
 
 from __future__ import annotations
@@ -17,6 +23,7 @@ from pathlib import Path
 from typing import Optional, Sequence
 import pypdf
 from contracts import Compartment, Label, Passage, Tier
+from ingest.ocr import OcrUnavailableError, ocr_pdf_page
 
 
 class ScannedPdfError(Exception):
@@ -32,7 +39,14 @@ class ScannedPdfError(Exception):
 
 
 def pdf_to_page_texts(pdf_path: str | Path) -> list[str]:
-    """Extract raw text from each page of a PDF file."""
+    """Extract raw text from each page of a PDF file.
+
+    Tries pypdf's direct text-layer extraction first (fast, exact). Any
+    page that comes back empty is assumed to be a scanned image and gets a
+    local OCR fallback (ingest/ocr.py) before being given up on -- a mixed
+    document only loses the pages that are genuinely unreadable by either
+    method, not the whole file.
+    """
     path = Path(pdf_path)
     if not path.exists():
         raise FileNotFoundError(f"PDF file not found at: {path}")
@@ -44,10 +58,24 @@ def pdf_to_page_texts(pdf_path: str | Path) -> list[str]:
 
     pages_text: list[str] = []
     has_any_text = False
+    ocr_unavailable_warned = False
 
     for page_idx, page in enumerate(reader.pages):
         text = page.extract_text() or ""
         cleaned = text.strip()
+
+        if not cleaned:
+            try:
+                cleaned = ocr_pdf_page(path, page_idx).strip()
+                if cleaned:
+                    print(f"[INGEST] '{path.name}' page {page_idx + 1}: no text layer -- recovered {len(cleaned)} chars via local OCR.")
+            except OcrUnavailableError as exc:
+                if not ocr_unavailable_warned:
+                    print(f"[INGEST] Warning: {exc}")
+                    ocr_unavailable_warned = True
+            except Exception as exc:
+                print(f"[INGEST] OCR failed on '{path.name}' page {page_idx + 1}: {exc}")
+
         if cleaned:
             has_any_text = True
         pages_text.append(cleaned)

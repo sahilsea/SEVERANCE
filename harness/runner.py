@@ -36,8 +36,30 @@ from trust.conversations import append_turn, conversation_owner, create_conversa
 from trust.labels import can_read, inherit_label
 from trust.ledger import log as ledger_log
 from trust.reports import save_report_data
+from tools.calculator import CalculatorError, calculate
+from tools.sandbox import extract_code_block, run_python
+from tools.units import UnitError, convert_unit
 
 DEFAULT_MAX_RETRIES = 3
+CODE_MAX_ATTEMPTS = 3
+
+
+def _network_destinations(sandbox_result: dict) -> list[str]:
+    seen = []
+    for a in sandbox_result.get("network_attempts", []):
+        dest = f"{a['host']}:{a['port']}" if a["port"] else a["host"]
+        if dest not in seen:
+            seen.append(dest)
+    return seen
+
+
+def _format_number(value: float) -> str:
+    """Render a float without ugly trailing binary-float noise
+    (158.987294928 not 158.98729492800001), while still showing real
+    precision -- round to 6 decimal places, then strip trailing zeros."""
+    if isinstance(value, int) or float(value).is_integer():
+        return str(int(value))
+    return f"{value:.6f}".rstrip("0").rstrip(".")
 
 
 def _build_capability_facts(corpus: Sequence[Passage], principal: Principal) -> tuple[str, list[str], list[str]]:
@@ -181,13 +203,17 @@ def run_query(
     # citations. This routes each of the three cases correctly BEFORE spending
     # a retrieval + drafting cycle on it.
     classify_intent = getattr(agent, "classify_intent", None)
+    # Real model identity, when the agent exposes one (RealLlmAgent does;
+    # MockAgent doesn't), so the live log can show which model is actually
+    # running instead of a generic "the model" -- see ui/app.html.
+    active_model = getattr(agent, "ollama_model", None)
     if classify_intent is not None:
-        _emit({"stage": "intent", "status": "start"})
+        _emit({"stage": "intent", "status": "start", "model": active_model})
         try:
             category = classify_intent(question, recent_context)
         except Exception:
             category = "content"  # fail open
-        _emit({"stage": "intent", "status": "done", "category": category})
+        _emit({"stage": "intent", "status": "done", "category": category, "model": active_model})
 
         if category == "other":
             answer = (
@@ -225,7 +251,7 @@ def run_query(
                     # local model would restate/extend prior turns' document
                     # content here, and this path has NO citation verification
                     # (see agents/real.py's draft_capability_answer docstring).
-                    answer = draft_capability(question, facts)
+                    answer = draft_capability(question, facts, emit=emit)
                 except Exception:
                     answer = None
             if not answer:
@@ -245,6 +271,244 @@ def run_query(
             response = AskResponse(
                 status="answered",
                 answer=answer,
+                citations=[],
+                denials=[],
+                effective_label=effective_label,
+                ledger_row_id=ledger_entry.row_id,
+                conversation_id=conversation_id,
+            )
+            save_report_data(
+                db_path=db_path,
+                ledger_row_id=ledger_entry.row_id,
+                person_id=principal.person_id,
+                question=question,
+                response=response,
+            )
+            append_turn(db_path, conversation_id, question, response)
+            return response
+
+        if category == "calculation":
+            # Genuine tool-calling: the model's only job is to identify
+            # WHICH tool applies and extract its arguments -- the actual
+            # arithmetic/conversion is done by tools/calculator.py or
+            # tools/units.py, hand-verified deterministic code, never the
+            # model's own math. See agents/real.py::extract_tool_call.
+            _emit({"stage": "calculation", "status": "start"})
+            extract_tool_call = getattr(agent, "extract_tool_call", None)
+            tool_call = None
+            if extract_tool_call is not None:
+                try:
+                    tool_call = extract_tool_call(question, recent_context)
+                except Exception as exc:
+                    print(f"[runner] Tool-call extraction raised an error: {exc}")
+                    tool_call = None
+
+            tool_result_text: Optional[str] = None
+            tool_error: Optional[str] = None
+            tool_name: Optional[str] = None
+            if tool_call is not None:
+                tool_name = tool_call["tool"]
+                try:
+                    if tool_call["tool"] == "calculator":
+                        value = calculate(tool_call["expression"])
+                        tool_result_text = f"**{tool_call['expression']} = {_format_number(value)}**"
+                    else:
+                        value = convert_unit(tool_call["value"], tool_call["from_unit"], tool_call["to_unit"])
+                        tool_result_text = (
+                            f"**{_format_number(tool_call['value'])} {tool_call['from_unit']} "
+                            f"= {_format_number(value)} {tool_call['to_unit']}**"
+                        )
+                except (CalculatorError, UnitError) as exc:
+                    tool_error = str(exc)
+
+            if tool_result_text is not None:
+                _emit({"stage": "calculation", "status": "done", "tool": tool_name})
+                answer = (
+                    f"{tool_result_text}\n\n"
+                    "*Computed by the local calculator/unit-conversion tool (a deterministic "
+                    "function call, not model arithmetic).*"
+                )
+                effective_label = Label(tier=Tier.PUBLIC, compartments=frozenset())
+                ledger_entry = ledger_log(
+                    db_path=db_path,
+                    actor=principal.person_id,
+                    action="ASK_ANSWERED",
+                    details={
+                        "question": question,
+                        "category": "calculation",
+                        "tool": tool_name,
+                        "answer_preview": answer[:100],
+                    },
+                )
+                response = AskResponse(
+                    status="answered",
+                    answer=answer,
+                    citations=[],
+                    denials=[],
+                    effective_label=effective_label,
+                    ledger_row_id=ledger_entry.row_id,
+                    conversation_id=conversation_id,
+                )
+                save_report_data(
+                    db_path=db_path,
+                    ledger_row_id=ledger_entry.row_id,
+                    person_id=principal.person_id,
+                    question=question,
+                    response=response,
+                )
+                append_turn(db_path, conversation_id, question, response)
+                return response
+
+            # Extraction failed, or the tool itself rejected the input (e.g.
+            # mismatched unit families) -- fall through to the code-
+            # generation+sandbox path below rather than a hard abstain: a
+            # real Python calculation can very likely still answer this,
+            # and that path already has its own honest failure reporting.
+            _emit({"stage": "calculation", "status": "fallback", "reason": tool_error or "could not identify a tool call"})
+            category = "code"
+
+        if category == "code":
+            # Task-type model routing: a coding request is handled by a
+            # separate, code-specialized local model (never the document-
+            # drafting model), and has no citation-verification step -- there
+            # is no document passage for generated code to be a verbatim
+            # substring of. See agents/real.py::draft_code's docstring.
+            #
+            # This is a real generate -> RUN -> fix -> retry loop, not a
+            # one-shot reply: if the generated code includes a Python block,
+            # it is actually executed in tools/sandbox.py, and a real
+            # failure (the real stderr, not a guess) is fed back into the
+            # next attempt, up to CODE_MAX_ATTEMPTS times.
+            draft_code = getattr(agent, "draft_code", None)
+            feedback: Optional[str] = None
+            final_answer: Optional[str] = None
+            sandbox_result: Optional[dict] = None
+            sandbox_attempts_used = 0
+
+            for attempt in range(1, CODE_MAX_ATTEMPTS + 1):
+                _emit({"stage": "code", "status": "start", "attempt": attempt, "max_attempts": CODE_MAX_ATTEMPTS})
+                answer = None
+                if draft_code is not None:
+                    try:
+                        answer = draft_code(question, recent_context, feedback=feedback, emit=emit)
+                    except Exception as exc:
+                        print(f"[runner] Code drafting raised an error: {exc}")
+                        answer = None
+                _emit({"stage": "code", "status": "done" if answer else "error", "attempt": attempt})
+
+                if not answer:
+                    # No response at all from the code model this attempt --
+                    # an infra hiccup, not a code bug. Retry rather than
+                    # treating it the same as a real execution failure.
+                    feedback = "The code model did not respond last attempt. Please try again."
+                    continue
+
+                final_answer = answer
+                code_block = extract_code_block(answer, "python")
+                if code_block is None:
+                    # Nothing executable was found (not Python, or a
+                    # prose-only answer) -- there is no sandbox claim to
+                    # make either way, so this is a legitimate final answer.
+                    _emit({"stage": "sandbox", "status": "skipped", "attempt": attempt})
+                    sandbox_result = None
+                    break
+
+                sandbox_attempts_used = attempt
+                _emit({"stage": "sandbox", "status": "start", "attempt": attempt})
+                sandbox_result = run_python(code_block)
+                if sandbox_result["success"]:
+                    _emit({"stage": "sandbox", "status": "pass", "attempt": attempt})
+                    break
+                if sandbox_result["network_attempts"]:
+                    # A blocked network call can't be "fixed" by another
+                    # attempt -- and feeding it back invites the model to
+                    # hardcode made-up data to get a pass. Stop and report.
+                    _emit({
+                        "stage": "sandbox",
+                        "status": "network_blocked",
+                        "attempt": attempt,
+                        "destinations": _network_destinations(sandbox_result),
+                    })
+                    break
+                _emit({"stage": "sandbox", "status": "fail", "attempt": attempt, "stderr": sandbox_result["stderr"][:300]})
+                feedback = (
+                    f"Running this code in the sandbox failed (exit code {sandbox_result['returncode']}).\n"
+                    f"STDOUT:\n{sandbox_result['stdout'] or '(empty)'}\n"
+                    f"STDERR:\n{sandbox_result['stderr'] or '(empty)'}"
+                )
+
+            effective_label = Label(tier=Tier.PUBLIC, compartments=frozenset())
+
+            if final_answer is None:
+                # The code model never produced a response across every
+                # attempt -- a genuine infra failure, not "code that doesn't
+                # work." Abstain honestly, same principle as every other
+                # failure path in this file.
+                ledger_entry = ledger_log(
+                    db_path=db_path,
+                    actor=principal.person_id,
+                    action="ASK_ABSTAINED",
+                    details={"question": question, "reason": "code_drafting_failed"},
+                )
+                response = AskResponse(
+                    status="abstained",
+                    answer="Response withheld: the local code model was unable to respond.",
+                    citations=[],
+                    denials=[],
+                    effective_label=effective_label,
+                    ledger_row_id=ledger_entry.row_id,
+                    conversation_id=conversation_id,
+                )
+                append_turn(db_path, conversation_id, question, response)
+                return response
+
+            # Always show the actual final state -- including code that
+            # still fails after every retry -- rather than silently hiding
+            # a failure. The point of running it is to report the truth,
+            # not to only ever show success.
+            if sandbox_result is None:
+                answer_text = final_answer
+            elif sandbox_result["success"]:
+                answer_text = (
+                    f"{final_answer}\n\n"
+                    f"## Sandbox Execution — Passed (attempt {sandbox_attempts_used} of {CODE_MAX_ATTEMPTS})\n\n"
+                    f"```\n{sandbox_result['stdout'] or '(no output)'}\n```"
+                )
+            elif sandbox_result["network_attempts"]:
+                destinations = ", ".join(f"`{d}`" for d in _network_destinations(sandbox_result))
+                answer_text = (
+                    f"{final_answer}\n\n"
+                    f"## Sandbox Execution — Blocked: Network Access Attempted\n\n"
+                    f"The generated code tried to connect to {destinations}. This workbench is air-gapped, "
+                    f"so the connection was stopped before any data left the machine, and the attempt is "
+                    f"recorded in the Sovereignty Monitor. The code was not retried, since no rewrite can "
+                    f"make external data available offline.\n\n"
+                    f"```\n{sandbox_result['stderr'] or '(no error output)'}\n```"
+                )
+            else:
+                status_note = "timed out" if sandbox_result["timed_out"] else f"exit code {sandbox_result['returncode']}"
+                answer_text = (
+                    f"{final_answer}\n\n"
+                    f"## Sandbox Execution — Failed after {sandbox_attempts_used} attempt(s) ({status_note})\n\n"
+                    f"```\n{sandbox_result['stderr'] or '(no error output)'}\n```"
+                )
+
+            ledger_entry = ledger_log(
+                db_path=db_path,
+                actor=principal.person_id,
+                action="ASK_ANSWERED",
+                details={
+                    "question": question,
+                    "category": "code",
+                    "sandbox_ran": sandbox_result is not None,
+                    "sandbox_passed": bool(sandbox_result and sandbox_result["success"]),
+                    "sandbox_network_blocked": bool(sandbox_result and sandbox_result["network_attempts"]),
+                    "answer_preview": answer_text[:100],
+                },
+            )
+            response = AskResponse(
+                status="answered",
+                answer=answer_text,
                 citations=[],
                 denials=[],
                 effective_label=effective_label,
@@ -322,6 +586,7 @@ def run_query(
                 passages=allowed_passages,
                 feedback=feedback,
                 recent_context=recent_context,
+                emit=emit,
             )
         except Exception as exc:
             # Infrastructure failure (e.g. both LLM backends unreachable): treat
@@ -470,7 +735,7 @@ def run_ephemeral_query(
         for attempt in range(1, max_retries + 1):
             _emit({"stage": "drafting", "status": "start", "attempt": attempt, "max_attempts": max_retries})
             try:
-                draft = agent.draft(question=question, passages=passages, feedback=feedback)
+                draft = agent.draft(question=question, passages=passages, feedback=feedback, emit=emit)
             except Exception as exc:
                 _emit({"stage": "drafting", "status": "error", "attempt": attempt, "message": str(exc)})
                 feedback = f"Attempt {attempt} failed: drafting agent raised an error ({exc})."

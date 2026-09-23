@@ -115,6 +115,71 @@ def verify_sponsors(db_path: str, config_path: Optional[str | Path] = None) -> N
         conn.close()
 
 
+def seed_sponsor_accounts(db_path: str, config_path: Optional[str | Path] = None) -> list[str]:
+    """Bootstrap-provision any declared compartment sponsor account that doesn't
+    exist yet, and pre-assign it its OWN declared compartment directly.
+
+    This is a one-time SYSTEM bootstrap action, not a runtime grant: rule 5
+    ("nobody can grant compartments to themselves", enforced in
+    grant_compartment() below) exists to stop an in-session actor from
+    escalating their own access, and does not apply here for the same reason
+    it doesn't apply to seed_initial_admin() creating the first admin account
+    -- there is no prior authority to bypass yet. Without this, the design's
+    sole declared sponsor of a compartment could NEVER receive that
+    compartment through the app's own UI: they cannot grant it to themselves
+    (rule 5), and until they exist and hold it, no one else is authorized to
+    grant it either (is_sponsor_or_delegate() would refuse everyone else).
+    That's a genuine bootstrap gap in the original design, not a workaround
+    around a rule that's meant to constrain this exact action.
+
+    Idempotent: only creates accounts that don't already exist. Returns the
+    list of person_ids actually created (empty on a re-run).
+    """
+    from auth.users import create_user, init_users_table
+
+    init_users_table(db_path)
+    config = load_compartment_config(config_path)
+    created: list[str] = []
+
+    conn = get_db_connection(db_path)
+    try:
+        cursor = conn.cursor()
+        for comp_name, info in config.items():
+            sponsor_id = info.get("sponsor")
+            if not sponsor_id:
+                continue
+            cursor.execute("SELECT person_id FROM users WHERE person_id = ?;", (sponsor_id,))
+            if cursor.fetchone() is not None:
+                continue  # already provisioned (e.g. a previous bootstrap, or an admin created it manually)
+
+            create_user(
+                db_path=db_path,
+                actor_id="system_bootstrap",
+                person_id=sponsor_id,
+                name=info.get("description", sponsor_id),
+                job_title=info.get("description", "Compartment Sponsor"),
+                grade="F",
+                is_admin=False,
+                must_change_password=True,
+            )
+            conn.execute(
+                "UPDATE users SET compartments = ? WHERE person_id = ?;",
+                (json.dumps([comp_name]), sponsor_id),
+            )
+            conn.commit()
+            ledger_log(
+                db_path=db_path,
+                actor="system_bootstrap",
+                action="BOOTSTRAP_SPONSOR_ACCOUNT",
+                details={"person_id": sponsor_id, "compartment": comp_name},
+            )
+            created.append(sponsor_id)
+    finally:
+        conn.close()
+
+    return created
+
+
 def is_sponsor_or_delegate(
     db_path: str,
     actor_id: str,

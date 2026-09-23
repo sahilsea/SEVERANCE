@@ -5,7 +5,9 @@
 !.env.example
 
 # Runtime data
+data/
 severance.db
+*.db.bak*
 *.db
 *.sqlite
 *.sqlite3

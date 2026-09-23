@@ -4,52 +4,142 @@
 <meta charset="utf-8">
 <meta content="width=device-width, initial-scale=1.0" name="viewport">
 <title>SEVERANCE — Document Trust Workbench</title>
+<script>
+  // Blocking (runs before first paint) so the page never flashes the wrong
+  // theme on load. Defaults to dark -- the toggle button lets the user
+  // switch, and the choice is remembered from here on.
+  (function () {
+    var t;
+    try { t = localStorage.getItem("severance-theme"); } catch (e) {}
+    document.documentElement.setAttribute("data-theme", t || "dark");
+  })();
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
 <style>
+  /* Dark is the default (no data-theme, or data-theme="dark"); the
+     [data-theme="light"] block overrides every token for light mode. Every
+     Tailwind color below (bg-primary, text-text-primary, ...) resolves
+     through these variables, so the toggle needs no class regeneration --
+     changing data-theme on <html> re-themes the whole page instantly. */
+  :root {
+    --color-background: 15 18 22; --color-surface: 15 18 22; --color-surface-canvas: 15 18 22; --color-surface-bright: 15 18 22;
+    --color-surface-raised: 23 27 33; --color-surface-subtle: 29 34 42; --color-surface-container: 35 40 51;
+    --color-surface-container-low: 26 31 39; --color-surface-container-high: 42 48 60; --color-surface-container-highest: 51 58 71;
+    --color-surface-container-lowest: 23 27 33; --color-surface-dim: 64 73 90;
+    --color-text-primary: 237 239 243; --color-text-secondary: 167 174 187; --color-text-tertiary: 118 126 140;
+    --color-on-background: 237 239 243; --color-on-surface: 237 239 243;
+    --color-border-subtle: 43 49 60; --color-border-strong: 65 74 89; --color-outline: 124 134 151;
+    --color-primary: 62 111 168; --color-primary-container: 46 74 110; --color-on-primary: 255 255 255; --color-on-primary-fixed-variant: 22 35 47;
+    --color-secondary: 74 114 144; --color-secondary-container: 31 58 80; --color-on-secondary: 255 255 255; --color-on-secondary-container: 191 217 234;
+    --color-inverse-surface: 237 239 243; --color-inverse-on-surface: 28 32 41;
+    --color-error: 229 83 75; --color-on-error-container: 255 211 206;
+    --color-clearance-public: 139 150 165; --color-clearance-internal: 84 130 174; --color-clearance-confidential: 217 163 67; --color-clearance-secret: 226 102 92;
+    --color-compartment-hse: 95 174 132; --color-compartment-vigilance: 139 127 199; --color-compartment-legal: 183 154 120;
+    --color-compartment-commercial: 79 156 184; --color-compartment-technical: 135 146 163;
+    --shadow-tint: 0 0 0;
+    color-scheme: dark;
+  }
+  :root[data-theme="light"] {
+    --color-background: 244 246 250; --color-surface: 244 246 250; --color-surface-canvas: 244 246 250; --color-surface-bright: 244 246 250;
+    --color-surface-raised: 255 255 255; --color-surface-subtle: 234 238 245; --color-surface-container: 226 231 240;
+    --color-surface-container-low: 237 241 247; --color-surface-container-high: 217 223 233; --color-surface-container-highest: 203 211 224;
+    --color-surface-container-lowest: 255 255 255; --color-surface-dim: 186 195 209;
+    --color-text-primary: 15 23 42; --color-text-secondary: 51 65 85; --color-text-tertiary: 100 116 139;
+    --color-on-background: 15 23 42; --color-on-surface: 15 23 42;
+    --color-border-subtle: 218 224 234; --color-border-strong: 184 194 208; --color-outline: 107 116 128;
+    --color-primary: 37 99 235; --color-primary-container: 29 78 216; --color-on-primary: 255 255 255; --color-on-primary-fixed-variant: 20 28 44;
+    --color-secondary: 14 116 144; --color-secondary-container: 207 232 242; --color-on-secondary: 255 255 255; --color-on-secondary-container: 21 94 117;
+    --color-inverse-surface: 28 32 41; --color-inverse-on-surface: 233 235 239;
+    --color-error: 220 38 38; --color-on-error-container: 96 16 16;
+    --color-clearance-public: 100 116 139; --color-clearance-internal: 37 99 235; --color-clearance-confidential: 205 110 0; --color-clearance-secret: 220 38 38;
+    --color-compartment-hse: 5 150 105; --color-compartment-vigilance: 124 58 237; --color-compartment-legal: 180 83 9;
+    --color-compartment-commercial: 8 145 178; --color-compartment-technical: 71 85 105;
+    --shadow-tint: 15 23 42;
+    color-scheme: light;
+  }
   @layer base { html, body { margin: 0; padding: 0; } body { overscroll-behavior: none; } }
   ::-webkit-scrollbar { display: none; }
-  .markdown-body h1, .markdown-body h2, .markdown-body h3 { font-family: "Newsreader", serif; font-weight: 500; color: #20201E; margin: 0.9em 0 0.35em; }
-  .markdown-body h1 { font-size: 22px; }
-  .markdown-body h2 { font-size: 19px; }
-  .markdown-body h3 { font-size: 16px; }
+  .markdown-body h1, .markdown-body h2, .markdown-body h3 { font-family: "Newsreader", serif; font-weight: 500; color: rgb(var(--color-text-primary)); margin: 0.9em 0 0.35em; }
+  .markdown-body h1 { font-size: 26px; }
+  .markdown-body h2 { font-size: 23px; }
+  .markdown-body h3 { font-size: 19px; }
   .markdown-body p { margin: 0 0 0.7em; line-height: 1.7; }
   .markdown-body p:last-child { margin-bottom: 0; }
   .markdown-body ul, .markdown-body ol { margin: 0 0 0.7em; padding-left: 1.4em; }
   .markdown-body li { margin-bottom: 0.3em; }
-  .markdown-body strong { font-weight: 600; color: #20201E; }
-  .markdown-body code { background: #F3F1EC; border: 1px solid #E6E4DC; border-radius: 4px; padding: 0.1em 0.4em; font-family: "JetBrains Mono", monospace; font-size: 0.85em; color: #a03a23; }
+  .markdown-body strong { font-weight: 600; color: rgb(var(--color-text-primary)); }
+  .markdown-body code { background: rgb(var(--color-surface-subtle)); border: 1px solid rgb(var(--color-border-subtle)); border-radius: 4px; padding: 0.1em 0.4em; font-family: "JetBrains Mono", monospace; font-size: 0.85em; color: rgb(var(--color-primary)); }
+  /* Fenced code blocks (multi-line generated code) -- distinct from the
+     inline `code` rule above: no per-token background/border (that would
+     tile awkwardly across many lines), its own padded block instead, and
+     overflow-x scroll so a long line never forces the whole page to
+     scroll horizontally. */
+  .markdown-body pre { background: rgb(var(--color-surface-subtle)); border: 1px solid rgb(var(--color-border-subtle)); border-radius: 8px; padding: 0.9em 1em; margin: 0 0 0.9em; overflow-x: auto; }
+  .markdown-body pre code { background: none; border: none; padding: 0; font-size: 0.85em; color: rgb(var(--color-text-primary)); white-space: pre; }
   @keyframes severance-dot-pulse { 0%, 100% { opacity: 0.35; transform: scale(0.9); } 50% { opacity: 1; transform: scale(1.05); } }
   @keyframes severance-step-in { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
   @keyframes severance-answer-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
   .thinking-dot { animation: severance-dot-pulse 1.1s ease-in-out infinite; }
   .thinking-step { animation: severance-step-in 0.35s ease-out; }
   .turn-answer-in { animation: severance-answer-in 0.35s ease-out; }
+  /* scrollIntoView({block:"end"}) aligns an element's bottom edge to the
+     viewport's bottom edge -- but the floating prompt bar is position:fixed
+     and covers that same region without occupying document flow space, so
+     without this reserved margin, scrolled content lands hidden behind it. */
+  [id$="-wrap"] { scroll-margin-bottom: 200px; }
+  /* No backdrop-filter here: blur on a position:fixed element that sits over
+     frequently-repainting content (the streaming live log, in particular)
+     is a known Safari/WebKit compositing trigger for ghosting -- stale
+     pixels smearing/duplicating underneath the blurred region instead of
+     clearing on repaint. A near-opaque solid background gives the same
+     "floating panel" read without touching the compositor's blur path. */
+  #promptBarWrap { background-color: rgb(var(--color-surface) / 0.97); }
+  /* The prompt bar is fixed and changes height (attachment chip, drop
+     overlay, multi-line text), so the chat's bottom padding tracks its real
+     height (--prompt-bar-h, set by a ResizeObserver) plus 3cm of free space,
+     letting the last message always scroll clear of it. */
+  #conversationFlow { padding-bottom: calc(var(--prompt-bar-h, 190px) + 3cm); }
+  /* Live socket-stream overlay: 50% background opacity (text stays fully
+     opaque so it's readable on video). No backdrop blur, same Safari
+     reason as the prompt bar above. On wide screens the chat column and
+     prompt bar make room for it so the two sit side by side. */
+  #netDock { background-color: rgb(var(--color-surface-raised) / 0.5); width: 400px; }
+  @media (min-width: 1280px) {
+    body.netdock-open #mainColumn, body.netdock-open #promptBarWrap { padding-right: 400px; }
+  }
+  @keyframes severance-row-in-allowed { from { background-color: rgb(var(--color-compartment-hse) / 0.35); } to { background-color: transparent; } }
+  @keyframes severance-row-in-blocked { from { background-color: rgb(var(--color-clearance-secret) / 0.55); } to { background-color: rgb(var(--color-clearance-secret) / 0.12); } }
+  .net-row-new-allowed { animation: severance-row-in-allowed 1.6s ease-out; }
+  .net-row-new-blocked { animation: severance-row-in-blocked 2.4s ease-out forwards; }
+  /* Blinking caret at the end of text a model is writing right now. */
+  @keyframes severance-caret { 50% { opacity: 0; } }
+  .live-caret { display: inline-block; width: 0.5em; height: 1.05em; margin-left: 2px; vertical-align: text-bottom; background: rgb(var(--color-primary)); animation: severance-caret 1s steps(1) infinite; }
 </style>
 <script src="https://cdn.tailwindcss.com"></script>
 <script id="tailwind-config">
 tailwind.config = { theme: { extend: {
-  "colors": { "secondary": "#436086", "on-primary-fixed-variant": "#832510", "surface-container": "#f0edea", "clearance-internal": "#456E82", "on-background": "#1c1c1a", "background": "#fcf9f5", "surface-canvas": "#FAF9F5", "inverse-on-surface": "#f3f0ed", "text-tertiary": "#8F8D86", "surface-container-highest": "#e5e2de", "inverse-surface": "#31302e", "compartment-commercial": "#3D6273", "clearance-confidential": "#B07D38", "surface-bright": "#fcf9f5", "outline": "#8a716c", "primary-container": "#c15238", "secondary-container": "#b3d1fd", "surface-container-low": "#f6f3ef", "error": "#ba1a1a", "surface-container-high": "#ebe8e4", "primary": "#a03a23", "compartment-legal": "#7A5C3E", "surface-raised": "#FFFFFF", "clearance-public": "#6A7B76", "on-surface": "#1c1c1a", "text-primary": "#20201E", "text-secondary": "#666560", "surface-dim": "#dcdad6", "compartment-hse": "#4D7358", "on-error-container": "#93000a", "border-strong": "#D4D1C7", "surface-container-lowest": "#ffffff", "on-primary": "#ffffff", "compartment-technical": "#55606B", "clearance-secret": "#A84332", "surface-subtle": "#F3F1EC", "border-subtle": "#E6E4DC", "surface": "#fcf9f5", "compartment-vigilance": "#5C527F" },
+  "colors": { "secondary": "rgb(var(--color-secondary) / <alpha-value>)", "on-primary-fixed-variant": "rgb(var(--color-on-primary-fixed-variant) / <alpha-value>)", "surface-container": "rgb(var(--color-surface-container) / <alpha-value>)", "clearance-internal": "rgb(var(--color-clearance-internal) / <alpha-value>)", "on-background": "rgb(var(--color-on-background) / <alpha-value>)", "background": "rgb(var(--color-background) / <alpha-value>)", "surface-canvas": "rgb(var(--color-surface-canvas) / <alpha-value>)", "inverse-on-surface": "rgb(var(--color-inverse-on-surface) / <alpha-value>)", "text-tertiary": "rgb(var(--color-text-tertiary) / <alpha-value>)", "surface-container-highest": "rgb(var(--color-surface-container-highest) / <alpha-value>)", "inverse-surface": "rgb(var(--color-inverse-surface) / <alpha-value>)", "compartment-commercial": "rgb(var(--color-compartment-commercial) / <alpha-value>)", "clearance-confidential": "rgb(var(--color-clearance-confidential) / <alpha-value>)", "surface-bright": "rgb(var(--color-surface-bright) / <alpha-value>)", "outline": "rgb(var(--color-outline) / <alpha-value>)", "primary-container": "rgb(var(--color-primary-container) / <alpha-value>)", "secondary-container": "rgb(var(--color-secondary-container) / <alpha-value>)", "surface-container-low": "rgb(var(--color-surface-container-low) / <alpha-value>)", "error": "rgb(var(--color-error) / <alpha-value>)", "surface-container-high": "rgb(var(--color-surface-container-high) / <alpha-value>)", "primary": "rgb(var(--color-primary) / <alpha-value>)", "compartment-legal": "rgb(var(--color-compartment-legal) / <alpha-value>)", "surface-raised": "rgb(var(--color-surface-raised) / <alpha-value>)", "clearance-public": "rgb(var(--color-clearance-public) / <alpha-value>)", "on-surface": "rgb(var(--color-on-surface) / <alpha-value>)", "text-primary": "rgb(var(--color-text-primary) / <alpha-value>)", "text-secondary": "rgb(var(--color-text-secondary) / <alpha-value>)", "surface-dim": "rgb(var(--color-surface-dim) / <alpha-value>)", "compartment-hse": "rgb(var(--color-compartment-hse) / <alpha-value>)", "on-error-container": "rgb(var(--color-on-error-container) / <alpha-value>)", "border-strong": "rgb(var(--color-border-strong) / <alpha-value>)", "surface-container-lowest": "rgb(var(--color-surface-container-lowest) / <alpha-value>)", "on-primary": "rgb(var(--color-on-primary) / <alpha-value>)", "compartment-technical": "rgb(var(--color-compartment-technical) / <alpha-value>)", "clearance-secret": "rgb(var(--color-clearance-secret) / <alpha-value>)", "surface-subtle": "rgb(var(--color-surface-subtle) / <alpha-value>)", "border-subtle": "rgb(var(--color-border-subtle) / <alpha-value>)", "surface": "rgb(var(--color-surface) / <alpha-value>)", "compartment-vigilance": "rgb(var(--color-compartment-vigilance) / <alpha-value>)" },
   "borderRadius": { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
   "spacing": { "margin": "2rem", "space-xl": "2.5rem", "space-md": "1rem", "space-sm": "0.5rem", "gutter-mobile": "1rem", "space-xs": "0.25rem", "space-lg": "1.5rem" },
   "fontFamily": { "headline-lg": ["Newsreader"], "headline-sm": ["Newsreader"], "body-md": ["Inter"], "title-sm": ["Inter"], "label-md": ["JetBrains Mono"], "headline-md": ["Newsreader"], "label-sm": ["JetBrains Mono"], "body-sm": ["Inter"], "title-md": ["Inter"] },
   "fontSize": {
-    "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.015em", "fontWeight": "400" }],
-    "headline-sm": ["20px", { "lineHeight": "28px", "fontWeight": "500" }],
-    "body-md": ["15px", { "lineHeight": "26px", "fontWeight": "400" }],
-    "title-sm": ["14px", { "lineHeight": "20px", "fontWeight": "600" }],
-    "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.03em", "fontWeight": "500" }],
-    "headline-md": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "400" }],
-    "label-sm": ["11px", { "lineHeight": "14px", "letterSpacing": "0.04em", "fontWeight": "500" }],
-    "body-sm": ["13px", { "lineHeight": "20px", "fontWeight": "400" }],
-    "title-md": ["16px", { "lineHeight": "24px", "letterSpacing": "-0.005em", "fontWeight": "600" }]
+    "headline-lg": ["38px", { "lineHeight": "46px", "letterSpacing": "-0.015em", "fontWeight": "400" }],
+    "headline-sm": ["24px", { "lineHeight": "32px", "fontWeight": "500" }],
+    "body-md": ["18px", { "lineHeight": "29px", "fontWeight": "400" }],
+    "title-sm": ["17px", { "lineHeight": "24px", "fontWeight": "600" }],
+    "label-md": ["14px", { "lineHeight": "18px", "letterSpacing": "0.03em", "fontWeight": "500" }],
+    "headline-md": ["29px", { "lineHeight": "38px", "letterSpacing": "-0.01em", "fontWeight": "400" }],
+    "label-sm": ["13px", { "lineHeight": "16px", "letterSpacing": "0.04em", "fontWeight": "500" }],
+    "body-sm": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+    "title-md": ["19px", { "lineHeight": "27px", "letterSpacing": "-0.005em", "fontWeight": "600" }]
   }
 } } };
 </script>
 </head>
 <body class="bg-surface font-body-md text-body-md text-on-surface min-h-screen">
 
-<header class="fixed top-0 left-0 right-0 z-50 bg-surface/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(32,32,30,0.04)]">
+<header class="fixed top-0 left-0 right-0 z-50 bg-surface/95 shadow-[0_1px_8px_rgb(var(--shadow-tint)/0.08)]">
 <div class="h-16 w-full px-space-lg flex items-center justify-between gap-space-md">
 <div class="flex items-center gap-space-lg">
 <div class="flex items-center gap-space-sm">
@@ -77,6 +167,7 @@ tailwind.config = { theme: { extend: {
 <div class="flex items-center gap-space-xs pl-space-xs" id="hdrComps"></div>
 </div>
 <div class="flex items-center gap-space-sm">
+<button aria-label="Toggle light/dark theme" class="w-9 h-9 rounded-lg flex items-center justify-center text-text-secondary hover:text-text-primary hover:bg-surface-subtle transition-colors" onclick="toggleTheme()" title="Toggle light/dark theme" type="button"><span class="material-symbols-outlined text-[18px] theme-toggle-icon">light_mode</span></button>
 <button class="font-body-sm text-body-sm text-text-secondary hover:text-text-primary px-space-sm py-space-xs rounded transition-colors" onclick="doLogout()" type="button">Sign Out</button>
 <div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div>
 </div>
@@ -84,11 +175,11 @@ tailwind.config = { theme: { extend: {
 </div>
 </header>
 
-<aside class="fixed left-0 top-16 bottom-0 w-64 bg-surface-subtle z-40 flex flex-col p-space-md gap-space-md">
+<aside class="fixed left-0 top-16 bottom-0 w-80 bg-surface-subtle z-40 flex flex-col p-space-md gap-space-md">
 <div class="space-y-space-md shrink-0">
 <div class="px-space-xs"><span class="font-label-sm text-label-sm uppercase tracking-wider text-text-tertiary">Navigation &amp; Panes</span></div>
 <nav class="space-y-space-xs" id="sidebarNav">
-<a class="nav-item flex items-center justify-between px-space-md py-space-xs rounded-lg transition-all group bg-surface text-text-primary shadow-[0_1px_4px_rgba(32,32,30,0.03)] font-medium" data-view="workbench" href="#">
+<a class="nav-item flex items-center justify-between px-space-md py-space-xs rounded-lg transition-all group bg-surface text-text-primary shadow-[0_1px_4px_rgb(var(--shadow-tint)/0.06)] font-medium" data-view="workbench" href="#">
 <div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[18px] text-text-tertiary group-hover:text-text-primary transition-colors">chat_bubble_outline</span><span class="font-body-md text-body-md">Active Inquiries</span></div>
 </a>
 <a class="nav-item flex items-center justify-between px-space-md py-space-xs rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface transition-all group" data-view="corpus" href="#">
@@ -97,6 +188,10 @@ tailwind.config = { theme: { extend: {
 </a>
 <a class="nav-item flex items-center justify-between px-space-md py-space-xs rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface transition-all group" data-view="ledger" href="#">
 <div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[18px] text-text-tertiary group-hover:text-text-primary transition-colors">verified_user</span><span class="font-body-md text-body-md">Audit Ledger</span></div>
+</a>
+<a class="nav-item flex items-center justify-between px-space-md py-space-xs rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface transition-all group" data-view="network" href="#">
+<div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[18px] text-text-tertiary group-hover:text-text-primary transition-colors">lan</span><span class="font-body-md text-body-md">Sovereignty Monitor</span></div>
+<span class="w-1.5 h-1.5 rounded-full bg-compartment-hse animate-pulse"></span>
 </a>
 </nav>
 </div>
@@ -120,13 +215,13 @@ tailwind.config = { theme: { extend: {
 </div>
 </aside>
 
-<div class="pl-64">
+<div class="pl-80" id="mainColumn">
 <main class="w-full pt-16 bg-surface min-h-[calc(100vh-4rem)] flex flex-col">
-<div class="w-full max-w-[820px] mx-auto px-space-md py-space-lg flex-1">
+<div class="w-full max-w-[1040px] mx-auto px-space-md py-space-lg flex-1">
 
 <!-- ============ WORKBENCH PANEL ============ -->
 <section id="panel-workbench">
-<div class="space-y-space-xl pb-48" id="conversationFlow">
+<div class="space-y-space-xl" id="conversationFlow">
 <div class="flex flex-col items-center justify-center text-center py-space-xl text-text-tertiary" id="emptyConversationNotice">
 <span class="material-symbols-outlined text-4xl mb-space-xs">forum</span>
 <span class="font-title-md text-title-md text-text-primary">Ask your first question</span>
@@ -212,13 +307,142 @@ tailwind.config = { theme: { extend: {
 </div>
 </section>
 
+<!-- ============ SOVEREIGNTY MONITOR PANEL ============ -->
+<section class="hidden" id="panel-network">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm mb-space-lg">
+<div class="flex flex-col gap-space-xs">
+<div class="flex items-center gap-space-sm flex-wrap">
+<h1 class="font-headline-lg text-headline-lg text-text-primary tracking-tight">Network Sovereignty Monitor</h1>
+<span class="font-label-sm text-label-sm px-2 py-0.5 rounded-full bg-surface-container text-text-secondary border border-border-subtle" id="netActiveHostBadge">Local Only</span>
+</div>
+<p class="font-body-md text-body-md text-text-secondary leading-relaxed">Every outbound call this process attempts is checked against a local-only guard before a socket ever opens. This log is that guard's real record — not a passive claim.</p>
+</div>
+<button class="px-space-md py-2 rounded-lg bg-surface-subtle hover:bg-surface-container font-title-sm text-title-sm text-text-primary transition-colors flex items-center gap-space-xs shrink-0" id="netExportBtn" type="button">
+<span class="material-symbols-outlined text-[18px] text-text-secondary">download</span>Export Audit (JSON)
+</button>
+</div>
+
+<div class="bg-surface-raised rounded-xl p-space-lg shadow-sm mb-space-lg flex flex-col sm:flex-row sm:items-center justify-between gap-space-md">
+<div class="flex items-start gap-space-md">
+<div class="w-10 h-10 rounded-lg bg-surface-subtle flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-[22px] text-compartment-hse">lock</span></div>
+<div class="flex flex-col gap-space-xs">
+<span class="font-title-sm text-title-sm text-text-primary" id="netBannerStatus">Air-Gap Active</span>
+<span class="font-body-sm text-body-sm text-text-secondary" id="netBannerDetail">Zero external connections made</span>
+</div>
+</div>
+<div class="flex items-center gap-space-lg shrink-0">
+<div class="flex flex-col items-end">
+<span class="font-label-sm text-label-sm text-text-tertiary uppercase tracking-wider">Uptime</span>
+<span class="font-title-sm text-title-sm text-text-primary" id="netUptime">—</span>
+</div>
+<span class="font-label-sm text-label-sm px-2.5 py-1 rounded-full bg-surface-container text-compartment-hse font-medium">Verified Isolated</span>
+</div>
+</div>
+
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-space-sm mb-space-lg">
+<div class="bg-surface-raised rounded-xl p-space-md shadow-sm flex flex-col gap-space-xs">
+<span class="font-label-sm text-label-sm text-text-tertiary uppercase tracking-wider">Total Inquiries</span>
+<span class="font-headline-sm text-headline-sm text-text-primary" id="netStatTotal">—</span>
+</div>
+<div class="bg-surface-raised rounded-xl p-space-md shadow-sm flex flex-col gap-space-xs">
+<span class="font-label-sm text-label-sm text-text-tertiary uppercase tracking-wider">Local Allowed</span>
+<span class="font-headline-sm text-headline-sm text-compartment-hse" id="netStatAllowed">—</span>
+</div>
+<div class="bg-surface-raised rounded-xl p-space-md shadow-sm flex flex-col gap-space-xs">
+<span class="font-label-sm text-label-sm text-text-tertiary uppercase tracking-wider">Blocked</span>
+<span class="font-headline-sm text-headline-sm text-clearance-secret" id="netStatBlocked">—</span>
+</div>
+<div class="bg-surface-raised rounded-xl p-space-md shadow-sm flex flex-col gap-space-xs">
+<span class="font-label-sm text-label-sm text-text-tertiary uppercase tracking-wider">Active Host</span>
+<span class="font-title-sm text-title-sm text-text-primary truncate" id="netStatHost">—</span>
+</div>
+</div>
+
+<div class="bg-surface-raised rounded-xl shadow-sm mb-space-lg overflow-hidden">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm p-space-md border-b border-border-subtle">
+<div class="flex items-center gap-space-sm">
+<span class="w-2 h-2 rounded-full bg-compartment-hse animate-pulse"></span>
+<h2 class="font-title-md text-title-md text-text-primary">Socket Stream</h2>
+<div class="flex items-center p-0.5 bg-surface-container-high rounded-lg text-text-secondary ml-space-sm">
+<button class="filter-chip active px-2.5 py-1 text-label-sm font-label-sm rounded-md bg-surface-raised text-text-primary shadow-sm font-medium transition-all" data-net-filter="all" type="button">All</button>
+<button class="filter-chip px-2.5 py-1 text-label-sm font-label-sm rounded-md text-text-secondary hover:text-text-primary transition-all" data-net-filter="blocked" type="button">Blocked (<span id="netBlockedFilterCount">0</span>)</button>
+</div>
+</div>
+<div class="flex items-center gap-space-sm">
+<input class="px-3 py-1.5 bg-surface-container-low rounded-lg text-body-sm font-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none w-full sm:w-56" id="netTextFilter" placeholder="Filter by process or host…" type="text">
+<button class="px-space-md py-1.5 rounded-lg bg-surface-subtle hover:bg-surface-container font-label-sm text-label-sm text-text-primary transition-colors flex items-center gap-1 shrink-0" id="netProbeBtn" title="Deliberately attempt a real external call through the same guard, to watch it get blocked live" type="button">
+<span class="material-symbols-outlined text-[16px]">bolt</span>Test External Block
+</button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left">
+<thead>
+<tr class="font-label-sm text-label-sm text-text-tertiary uppercase tracking-wider border-b border-border-subtle">
+<th class="px-space-md py-space-sm font-medium">Timestamp (local)</th>
+<th class="px-space-md py-space-sm font-medium">Process</th>
+<th class="px-space-md py-space-sm font-medium">Socket</th>
+<th class="px-space-md py-space-sm font-medium">Status</th>
+</tr>
+</thead>
+<tbody id="netEventTableBody"></tbody>
+</table>
+<div class="hidden flex-col items-center justify-center p-space-xl text-center" id="netEventsEmpty">
+<span class="material-symbols-outlined text-text-tertiary text-4xl mb-space-xs">lan</span>
+<span class="font-title-md text-title-md text-text-primary">No connection attempts recorded yet</span>
+<p class="font-body-sm text-body-sm text-text-secondary max-w-sm mt-1">Ask a question in the Workbench, or trigger the test probe above, to generate real entries here.</p>
+</div>
+</div>
+<div class="flex items-center justify-between px-space-md py-space-sm border-t border-border-subtle font-label-sm text-label-sm text-text-tertiary">
+<span id="netEventsShowingCount">Showing recent transactions</span>
+</div>
+</div>
+
+<div class="bg-surface-raised rounded-xl p-space-md shadow-sm mb-space-lg flex flex-col sm:flex-row sm:items-center gap-space-md justify-between">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-[18px] text-compartment-hse">verified</span>
+<span class="font-body-sm text-body-sm text-text-secondary">Enforcement: a local-only guard runs before every outbound call this process makes (<code class="px-1 py-0.5 rounded bg-surface-container text-text-primary">trust/network_monitor.py</code>).</span>
+</div>
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-[18px] text-compartment-hse">verified</span>
+<span class="font-body-sm text-body-sm text-text-secondary">No cloud LLM backend is compiled into this build — local Ollama only.</span>
+</div>
+</div>
+</section>
+
 </div>
 </main>
 </div>
 
+<!-- ============ LIVE SOCKET STREAM OVERLAY (workbench only) ============ -->
+<aside aria-label="Live socket stream" class="hidden fixed top-16 right-0 bottom-0 z-40 flex-col border-l border-border-strong shadow-2xl" id="netDock">
+<div class="flex items-center justify-between gap-space-sm px-space-md py-space-sm border-b border-border-subtle">
+<div class="flex items-center gap-space-sm min-w-0">
+<span class="w-2 h-2 rounded-full bg-compartment-hse animate-pulse shrink-0"></span>
+<div class="flex flex-col min-w-0">
+<span class="font-title-sm text-title-sm text-text-primary">Live Socket Stream</span>
+<span class="font-label-sm text-label-sm text-text-tertiary truncate">Every outbound call, checked before it opens</span>
+</div>
+</div>
+<button aria-label="Close live socket stream" class="w-8 h-8 rounded-lg flex items-center justify-center text-text-secondary hover:text-text-primary hover:bg-surface-container shrink-0" id="netDockClose" type="button">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+<div class="grid grid-cols-3 gap-space-xs px-space-md py-space-sm border-b border-border-subtle">
+<div class="flex flex-col"><span class="font-label-sm text-label-sm text-text-tertiary uppercase">Total</span><span class="font-title-md text-title-md text-text-primary" id="netDockTotal">—</span></div>
+<div class="flex flex-col"><span class="font-label-sm text-label-sm text-text-tertiary uppercase">Allowed</span><span class="font-title-md text-title-md text-compartment-hse" id="netDockAllowed">—</span></div>
+<div class="flex flex-col"><span class="font-label-sm text-label-sm text-text-tertiary uppercase">Blocked</span><span class="font-title-md text-title-md text-clearance-secret" id="netDockBlocked">—</span></div>
+</div>
+<div class="flex-1 min-h-0 overflow-y-auto" id="netDockList"></div>
+<div class="px-space-md py-space-sm border-t border-border-subtle font-label-sm text-label-sm text-text-tertiary flex items-center justify-between gap-space-sm">
+<span id="netDockUpdated">Connecting…</span>
+<span class="truncate">Local only · no cloud backend</span>
+</div>
+</aside>
+
 <!-- ============ FLOATING PROMPT BAR (workbench only) ============ -->
-<div class="fixed bottom-0 right-0 left-0 pl-64 z-30 pointer-events-none border-t border-border-subtle/40" id="promptBarWrap" style="background-color: rgba(252, 249, 245, 0.92); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);">
-<div class="relative w-full max-w-4xl mx-auto px-space-md pb-6 pointer-events-auto">
+<div class="fixed bottom-0 right-0 left-0 pl-80 z-30 pointer-events-none border-t border-border-subtle/40" id="promptBarWrap">
+<div class="relative w-full max-w-[1040px] mx-auto px-space-md pb-6 pointer-events-auto">
 <div class="pointer-events-none absolute -top-14 left-0 right-0 h-14 bg-gradient-to-t from-surface via-surface/80 to-transparent"></div>
 <div class="relative bg-surface-raised rounded-2xl p-space-md border border-border-subtle shadow-xl space-y-space-xs transition-all" id="promptBarBox">
 <div class="hidden absolute inset-0 z-10 rounded-2xl bg-surface-raised/95 border-2 border-dashed border-primary flex flex-col items-center justify-center gap-space-xs pointer-events-none" id="dropOverlay">
@@ -247,6 +471,9 @@ tailwind.config = { theme: { extend: {
 <div class="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface-container-low border border-border-subtle font-label-sm text-label-sm text-compartment-hse">
 <span class="w-1.5 h-1.5 rounded-full bg-compartment-hse animate-pulse"></span><span>Veracity Gate Active</span>
 </div>
+<button aria-pressed="false" class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface-container-low border border-border-subtle font-label-sm text-label-sm text-text-secondary hover:text-text-primary transition-colors" id="netDockToggle" title="Show every network call live, side by side with the conversation" type="button">
+<span class="material-symbols-outlined text-[15px]">lan</span><span>Live Socket Stream</span>
+</button>
 <span class="hidden md:inline font-label-sm text-label-sm text-text-tertiary" id="scopeLabel">Scope: […]</span>
 </div>
 <div class="flex items-center gap-space-xs">
@@ -264,7 +491,7 @@ tailwind.config = { theme: { extend: {
 </div>
 </div>
 
-<script src="/static/app.js"></script>
+<script src="/static/app.js?v=3"></script>
 <script>
 let currentPrincipal = null;
 let currentView = "workbench";
@@ -289,6 +516,9 @@ function compPill(comp) {
 }
 
 async function init() {
+  // Guarded: a stale cached app.js without this function must not throw and
+  // abort the rest of init() (loading the principal, documents, etc.).
+  if (typeof syncThemeToggleIcon === "function") syncThemeToggleIcon();
   currentPrincipal = await getCurrentPrincipal();
   if (!currentPrincipal) return;
 
@@ -331,13 +561,14 @@ function switchView(view) {
     const active = el.getAttribute("data-view") === view;
     el.classList.toggle("bg-surface", active);
     el.classList.toggle("text-text-primary", active);
-    el.classList.toggle("shadow-[0_1px_4px_rgba(32,32,30,0.03)]", active);
+    el.classList.toggle("shadow-[0_1px_4px_rgb(var(--shadow-tint)/0.06)]", active);
     el.classList.toggle("font-medium", active);
     el.classList.toggle("text-on-surface-variant", !active);
   });
   document.getElementById("panel-workbench").classList.toggle("hidden", view !== "workbench");
   document.getElementById("panel-corpus").classList.toggle("hidden", view !== "corpus");
   document.getElementById("panel-ledger").classList.toggle("hidden", view !== "ledger");
+  document.getElementById("panel-network").classList.toggle("hidden", view !== "network");
   document.getElementById("promptBarWrap").style.display = view === "workbench" ? "block" : "none";
 
   if (view === "corpus") {
@@ -345,6 +576,8 @@ function switchView(view) {
     else loadDocuments(true);
   }
   if (view === "ledger" && !ledgerLoaded) loadLedger();
+  if (view === "network") loadNetworkMonitor();
+  if (view !== "workbench" && !document.getElementById("netDock").classList.contains("hidden")) setNetDockOpen(false);
 }
 
 /* ========================= CONVERSATION HISTORY ========================= */
@@ -540,11 +773,15 @@ function renderCitations(citations) {
     </div>`;
 }
 
-// turnId -> ordered array of {key, icon, label, state: 'active'|'done'|'fail'}.
+// turnId -> ordered array of {key, icon, label, state: 'active'|'done'|'fail'|'skip'}.
 // Populated entirely from REAL /ask/stream events emitted by harness/runner.py
-// as each pipeline stage actually happens -- not a timed guess. See
-// handleStreamEvent() below for the event -> log-line mapping.
+// and agents/real.py as each pipeline stage actually happens -- not a timed
+// guess. See handleStreamEvent() below for the event -> log-line mapping.
 const liveLogs = {};
+// turnId -> current outer drafting attempt number, so nested "model_call"
+// events (which model is running, whether a citation-repair pass fired)
+// get a distinct log key per attempt instead of colliding across retries.
+const draftAttemptByTurn = {};
 
 /** Renders the user's question immediately, plus an empty live-log
  * placeholder for the assistant turn. Returns the turnId to fill in later. */
@@ -587,31 +824,317 @@ function initLiveLog(turnId) {
   body.innerHTML = `
     <div class="bg-surface-raised rounded-xl p-space-xl shadow-sm">
       <div class="flex flex-col gap-space-sm" id="${turnId}-steps"></div>
+      <div class="hidden mt-space-lg pt-space-md border-t border-border-subtle" id="${turnId}-live">
+        <div class="markdown-body transition-opacity duration-300" id="${turnId}-live-text"></div>
+        <div class="flex items-center gap-space-xs mt-space-sm pt-space-sm border-t border-border-subtle/60 font-label-sm text-label-sm text-text-secondary" id="${turnId}-live-label"></div>
+      </div>
     </div>`;
+}
+
+/* ---- Live token streaming ----
+ * "stream" events carry the model's text as it is generated (see
+ * agents/real.py::_stream_emitter). A document answer is shown here as an
+ * UNVERIFIED draft: it only becomes the answer if its citations then pass
+ * verbatim verification, and a draft that fails is visibly discarded.
+ *
+ * The status line sits UNDER the streaming text (not above it), because the
+ * view follows the newest text -- anything above scrolls out of sight while
+ * a long answer is being written. */
+const liveStreams = {};
+const pendingEvents = {};
+const VOID_TAGS = new Set(["BR", "HR", "IMG", "INPUT"]);
+
+// Display pacing: the model's real text is typed onto the screen smoothly
+// instead of in the bursts it arrives in, but never falls more than
+// MAX_LAG_SECONDS behind the model, and finishes within MAX_DRAIN_SECONDS
+// of the model finishing -- smooth typing without delaying the answer.
+const REVEAL_CHARS_PER_SECOND = 60; // minimum typing speed
+const MAX_LAG_SECONDS = 1.0;
+const MAX_DRAIN_SECONDS = 0.75;
+// A timer, not requestAnimationFrame: rAF stops entirely while the tab or
+// pane isn't visible, which would freeze the reveal mid-answer.
+const REVEAL_TICK_MS = 33;
+
+function liveProgress(s) {
+  const shown = s.text.slice(0, s.shown);
+  if (s.purpose === "code") {
+    const n = shown ? shown.split("\n").length : 0;
+    return `${n} line${n === 1 ? "" : "s"}`;
+  }
+  const n = shown.trim() ? shown.trim().split(/\s+/).length : 0;
+  return `${n} word${n === 1 ? "" : "s"}`;
+}
+
+/** The status line's text. An explicit status (verification, sandbox...)
+ * wins; otherwise it describes the writing itself, with live progress. */
+function liveStatus(s) {
+  if (s.status) return s.status;
+  const withModel = s.model ? ` with ${s.model}` : "";
+  const byModel = s.model ? ` by ${s.model}` : "";
+  const writing = s.active || s.shown < s.text.length;
+  if (s.purpose === "code") {
+    return writing
+      ? { icon: "progress_activity", cls: "text-primary animate-spin", text: `Generating code${withModel}… · ${liveProgress(s)}` }
+      : { icon: "check_circle", cls: "text-compartment-hse", text: `Code generated${byModel} · ${liveProgress(s)}` };
+  }
+  if (s.purpose === "draft") {
+    return writing
+      ? { icon: "progress_activity", cls: "text-clearance-confidential animate-spin", text: `Writing a draft answer${withModel}… · ${liveProgress(s)} · not yet verified — citations are checked before it becomes the answer` }
+      : { icon: "pending", cls: "text-clearance-confidential", text: `Draft written${byModel} · ${liveProgress(s)} · not yet verified` };
+  }
+  return writing
+    ? { icon: "progress_activity", cls: "text-primary animate-spin", text: `Writing the answer${withModel}… · ${liveProgress(s)}` }
+    : { icon: "check_circle", cls: "text-compartment-hse", text: `Answer written${byModel}` };
+}
+
+function renderLiveStream(turnId) {
+  const s = liveStreams[turnId];
+  if (!s) return;
+  const el = document.getElementById(`${turnId}-live-text`);
+  if (!el) return;
+  el.innerHTML = renderMarkdown(s.text.slice(0, s.shown));
+  if (s.active || s.shown < s.text.length) {
+    let leaf = el;
+    while (leaf.lastElementChild && !VOID_TAGS.has(leaf.lastElementChild.tagName)) leaf = leaf.lastElementChild;
+    const caret = document.createElement("span");
+    caret.className = "live-caret";
+    leaf.appendChild(caret);
+  }
+  const st = liveStatus(s);
+  const label = document.getElementById(`${turnId}-live-label`);
+  if (label) label.innerHTML = `<span class="material-symbols-outlined text-[15px] ${st.cls}">${st.icon}</span><span>${escapeHtml(st.text)}</span>`;
+  const now = performance.now();
+  if (now - s.lastScroll > 250) {
+    s.lastScroll = now;
+    scrollTurnBottomIntoView(turnId);
+  }
+}
+
+function setLiveStatus(turnId, icon, cls, text) {
+  const s = liveStreams[turnId];
+  if (!s) return;
+  s.status = { icon, cls, text };
+  renderLiveStream(turnId);
+}
+
+function ensureRevealLoop(turnId) {
+  const s = liveStreams[turnId];
+  if (s && !s.frame) {
+    s.lastTs = null;
+    s.frame = setTimeout(() => revealTick(turnId), 0);
+  }
+}
+
+function notifyDrained(s) {
+  const waiters = s.drainWaiters;
+  s.drainWaiters = [];
+  waiters.forEach(w => w());
+}
+
+function revealTick(turnId) {
+  const s = liveStreams[turnId];
+  if (!s) return;
+  s.frame = null;
+  const backlog = s.text.length - s.shown;
+  if (backlog <= 0) {
+    renderLiveStream(turnId);
+    if (s.done) notifyDrained(s);
+    return;
+  }
+  const ts = performance.now();
+  const dt = s.lastTs === null ? 0 : Math.min(0.25, (ts - s.lastTs) / 1000);
+  s.lastTs = ts;
+  if (s.done && s.drainCps == null) s.drainCps = Math.max(REVEAL_CHARS_PER_SECOND, backlog / MAX_DRAIN_SECONDS);
+  const cps = s.done ? s.drainCps : Math.max(REVEAL_CHARS_PER_SECOND, backlog / MAX_LAG_SECONDS);
+  s.carry += cps * dt;
+  const step = Math.floor(s.carry);
+  if (step > 0) {
+    s.carry -= step;
+    s.shown = Math.min(s.text.length, s.shown + step);
+    renderLiveStream(turnId);
+  }
+  s.frame = setTimeout(() => revealTick(turnId), REVEAL_TICK_MS);
+}
+
+function revealAllNow(turnId) {
+  const s = liveStreams[turnId];
+  if (!s) return;
+  s.shown = s.text.length;
+  renderLiveStream(turnId);
+  notifyDrained(s);
+}
+
+/** Resolves once everything the model wrote is on screen (bounded, and
+ * with a timer fallback in case timers are throttled in a background tab). */
+function drainLiveStream(turnId) {
+  const s = liveStreams[turnId];
+  if (!s) return Promise.resolve();
+  s.done = true;
+  s.active = false;
+  if (s.shown >= s.text.length) {
+    renderLiveStream(turnId);
+    return Promise.resolve();
+  }
+  return new Promise(resolve => {
+    let settled = false;
+    const finish = () => { if (!settled) { settled = true; clearTimeout(timer); resolve(); } };
+    const timer = setTimeout(() => { revealAllNow(turnId); finish(); }, (MAX_DRAIN_SECONDS + 2) * 1000);
+    s.drainWaiters.push(finish);
+    ensureRevealLoop(turnId);
+  });
+}
+
+/** Routes one backend event. Pipeline steps that happen after the model
+ * finished (e.g. "code generated", "sandbox passed") are held until the
+ * text has finished appearing, so the log never claims a step is done
+ * while its output is still typing onto the screen. */
+function dispatchLiveEvent(turnId, event) {
+  const queue = pendingEvents[turnId];
+  const s = liveStreams[turnId];
+  const behind = s && s.shown < s.text.length && event.stage !== "stream";
+  if (queue) {
+    queue.push(event);
+    return;
+  }
+  if (behind) {
+    pendingEvents[turnId] = [event];
+    flushAfterDrain(turnId);
+    return;
+  }
+  handleStreamEvent(turnId, event);
+}
+
+async function flushAfterDrain(turnId) {
+  await drainLiveStream(turnId);
+  const queue = pendingEvents[turnId] || [];
+  delete pendingEvents[turnId];
+  for (const ev of queue) dispatchLiveEvent(turnId, ev);
+}
+
+/** Waits until the text is fully shown and every held event has been
+ * applied -- called before the final answer replaces the live view. */
+async function settleLiveStream(turnId) {
+  for (let i = 0; i < 20; i++) {
+    const s = liveStreams[turnId];
+    const behind = s && s.shown < s.text.length;
+    if (!behind && !pendingEvents[turnId]) return;
+    await drainLiveStream(turnId);
+    await new Promise(r => setTimeout(r, 0));
+  }
+}
+
+function handleLiveStreamEvent(turnId, event) {
+  if (event.status === "start") {
+    const prev = liveStreams[turnId];
+    if (prev?.frame) clearTimeout(prev.frame);
+    liveStreams[turnId] = {
+      text: "", shown: 0, carry: 0, lastTs: null, purpose: event.purpose, model: event.model || null,
+      active: true, done: false, frame: null, lastScroll: 0, drainWaiters: [], status: null,
+    };
+    document.getElementById(`${turnId}-live`)?.classList.remove("hidden");
+    document.getElementById(`${turnId}-live-text`)?.classList.remove("opacity-40");
+    renderLiveStream(turnId);
+  } else if (event.status === "delta" && liveStreams[turnId]) {
+    liveStreams[turnId].text += event.text;
+    ensureRevealLoop(turnId);
+  }
+}
+
+/** Any non-stream event means the model has finished writing: stop the
+ * caret, and show what's happening to the finished text next. */
+function updateLiveStreamForEvent(turnId, event) {
+  const s = liveStreams[turnId];
+  if (!s) return;
+  if (s.active) {
+    s.active = false;
+    s.done = true; // model finished: reveal may now catch up
+    ensureRevealLoop(turnId);
+  }
+  const { stage, status } = event;
+  if (s.purpose === "code" && stage === "sandbox") {
+    if (status === "start") {
+      setLiveStatus(turnId, "terminal", "text-primary thinking-dot", `Code generated by ${s.model} · running it in the sandbox…`);
+    } else if (status === "pass") {
+      setLiveStatus(turnId, "check_circle", "text-compartment-hse", `Code generated by ${s.model} · sandbox run passed`);
+    } else if (status === "fail") {
+      setLiveStatus(turnId, "error", "text-clearance-confidential", "Sandbox run failed — sending the real error back to the model to fix…");
+    } else if (status === "network_blocked") {
+      setLiveStatus(turnId, "block", "text-clearance-secret", "The code tried to reach the internet — blocked by the air-gap guard");
+    }
+    return;
+  }
+  if (s.purpose !== "draft") return;
+  if (stage === "verification" && status === "start") {
+    setLiveStatus(turnId, "fact_check", "text-primary thinking-dot", `Draft written by ${s.model} — verifying every citation word for word…`);
+  } else if (stage === "verification" && status === "pass") {
+    setLiveStatus(turnId, "verified", "text-compartment-hse", "Citations verified — finalizing answer…");
+  } else if (stage === "verification" && status === "fail") {
+    setLiveStatus(turnId, "cancel", "text-clearance-secret", "This draft failed citation verification — discarded, retrying…");
+    revealAllNow(turnId);
+    document.getElementById(`${turnId}-live-text`)?.classList.add("opacity-40");
+  } else if (stage === "model_call" && status === "empty_citations" && event.purpose === "draft") {
+    setLiveStatus(turnId, "search", "text-clearance-confidential", "Draft came back without citations — searching the passages for supporting quotes…");
+  }
+}
+
+/** Renders one log step as a line of HTML. Shared between the live
+ * in-progress log (renderLiveLog) and the static "Used N tools" summary
+ * that replaces it once a turn finishes (renderAnswerBody), so a step looks
+ * the same in both places. */
+function renderStepLine(step) {
+  if (step.state === "done") {
+    return `<div class="flex items-center gap-space-sm text-text-tertiary">
+      <span class="material-symbols-outlined text-[16px] text-compartment-hse">check_circle</span>
+      <span class="font-body-sm text-body-sm line-through decoration-text-tertiary/40">${escapeHtml(step.label)}</span>
+    </div>`;
+  }
+  if (step.state === "fail") {
+    return `<div class="flex items-center gap-space-sm text-clearance-secret">
+      <span class="material-symbols-outlined text-[16px]">cancel</span>
+      <span class="font-body-sm text-body-sm">${escapeHtml(step.label)}</span>
+    </div>`;
+  }
+  if (step.state === "skip") {
+    // Non-terminal transition (e.g. a model returned zero citations and
+    // we're moving on to a repair pass or a fallback model) -- not an
+    // error, so deliberately NOT styled like "fail".
+    return `<div class="flex items-center gap-space-sm text-text-tertiary">
+      <span class="material-symbols-outlined text-[16px] text-clearance-confidential">arrow_forward</span>
+      <span class="font-body-sm text-body-sm">${escapeHtml(step.label)}</span>
+    </div>`;
+  }
+  return `<div class="flex items-center gap-space-sm text-text-primary thinking-step">
+    <span class="material-symbols-outlined text-[16px] text-primary thinking-dot">${step.icon}</span>
+    <span class="font-body-sm text-body-sm">${escapeHtml(step.label)}</span>
+  </div>`;
+}
+
+/** Keeps a growing turn card's bottom edge clear of the fixed floating
+ * prompt bar. Measures the prompt bar's ACTUAL current height (not a fixed
+ * guess) because it grows when an attachment chip or the drop-zone overlay
+ * is showing -- a fixed CSS scroll-margin was proven too small in exactly
+ * that case. Recomputed on every call since that height changes live. */
+function scrollTurnBottomIntoView(turnId) {
+  const wrap = document.getElementById(`${turnId}-wrap`);
+  if (!wrap) return;
+  const bar = document.getElementById("promptBarWrap");
+  const barHeight = bar ? bar.getBoundingClientRect().height : 0;
+  wrap.style.scrollMarginBottom = `${barHeight + 24}px`;
+  wrap.scrollIntoView({ behavior: "smooth", block: "end" });
 }
 
 function renderLiveLog(turnId) {
   const stepsEl = document.getElementById(`${turnId}-steps`);
   if (!stepsEl) return;
   const steps = liveLogs[turnId] || [];
-  stepsEl.innerHTML = steps.map(step => {
-    if (step.state === "done") {
-      return `<div class="flex items-center gap-space-sm text-text-tertiary">
-        <span class="material-symbols-outlined text-[16px] text-compartment-hse">check_circle</span>
-        <span class="font-body-sm text-body-sm line-through decoration-text-tertiary/40">${escapeHtml(step.label)}</span>
-      </div>`;
-    }
-    if (step.state === "fail") {
-      return `<div class="flex items-center gap-space-sm text-clearance-secret">
-        <span class="material-symbols-outlined text-[16px]">cancel</span>
-        <span class="font-body-sm text-body-sm">${escapeHtml(step.label)}</span>
-      </div>`;
-    }
-    return `<div class="flex items-center gap-space-sm text-text-primary thinking-step">
-      <span class="material-symbols-outlined text-[16px] text-primary thinking-dot">${step.icon}</span>
-      <span class="font-body-sm text-body-sm">${escapeHtml(step.label)}</span>
-    </div>`;
-  }).join("");
+  stepsEl.innerHTML = steps.map(renderStepLine).join("");
+
+  // Keep the growing log in view as new lines stream in -- without this, a
+  // log that grows past the height it had when the turn first scrolled into
+  // view ends up with its newest lines hidden behind the fixed floating
+  // prompt bar (which doesn't participate in document flow, so scrolling
+  // stops "catching up" to it on its own).
+  scrollTurnBottomIntoView(turnId);
 }
 
 /** Insert or update one log line, keyed so a later event (e.g. "done") updates
@@ -638,19 +1161,28 @@ function upsertLogStep(turnId, key, icon, label, state) {
  * runs -- there is no simulated timing anywhere in this function. */
 function handleStreamEvent(turnId, event) {
   const { stage, status } = event;
+  if (stage === "stream") {
+    handleLiveStreamEvent(turnId, event);
+    return;
+  }
+  updateLiveStreamForEvent(turnId, event);
   switch (stage) {
-    case "intent":
+    case "intent": {
+      const modelTag = event.model ? ` (${event.model})` : "";
       if (status === "start") {
-        upsertLogStep(turnId, "intent", "psychology", "Classifying your question…", "active");
+        upsertLogStep(turnId, "intent", "psychology", `Classifying your question${modelTag}…`, "active");
       } else {
         const labelByCategory = {
           content: "Classified as a document question",
           capability: "Classified as a question about my own capabilities",
+          code: "Classified as a coding request",
+          calculation: "Classified as a calculation or unit conversion",
           other: "Classified as casual chatter, not a specific question",
         };
-        upsertLogStep(turnId, "intent", "psychology", labelByCategory[event.category] || "Classified your question", "done");
+        upsertLogStep(turnId, "intent", "psychology", (labelByCategory[event.category] || "Classified your question") + modelTag, "done");
       }
       break;
+    }
     case "capability":
       if (status === "start") {
         upsertLogStep(turnId, "capability", "auto_awesome", "Composing an answer from real system data…", "active");
@@ -658,6 +1190,47 @@ function handleStreamEvent(turnId, event) {
         upsertLogStep(turnId, "capability", "auto_awesome", "Composed answer from real system data", "done");
       }
       break;
+    case "calculation":
+      if (status === "start") {
+        upsertLogStep(turnId, "calculation", "calculate", "Extracting a calculator/unit-conversion tool call…", "active");
+      } else if (status === "done") {
+        const toolLabel = event.tool === "calculator" ? "calculator" : "unit converter";
+        upsertLogStep(turnId, "calculation", "calculate", `Computed via the local ${toolLabel} tool`, "done");
+      } else if (status === "fallback") {
+        upsertLogStep(turnId, "calculation", "calculate", "Not a simple tool call — falling back to generated code…", "skip");
+      }
+      break;
+    case "code": {
+      const key = `code-${event.attempt}`;
+      draftAttemptByTurn[turnId] = event.attempt; // so nested model_call events key correctly
+      if (status === "start") {
+        const label = event.max_attempts > 1
+          ? `Routing to the code-specialized local model (attempt ${event.attempt} of ${event.max_attempts})…`
+          : "Routing to the code-specialized local model…";
+        upsertLogStep(turnId, key, "code", label, "active");
+      } else if (status === "done") {
+        upsertLogStep(turnId, key, "code", `Code generated (attempt ${event.attempt})`, "done");
+      } else {
+        upsertLogStep(turnId, key, "code", `The code model did not respond (attempt ${event.attempt})`, "fail");
+      }
+      break;
+    }
+    case "sandbox": {
+      const key = `sandbox-${event.attempt}`;
+      if (status === "start") {
+        upsertLogStep(turnId, key, "terminal", `Running the generated code in the sandbox (attempt ${event.attempt})…`, "active");
+      } else if (status === "pass") {
+        upsertLogStep(turnId, key, "terminal", `Sandbox run passed (attempt ${event.attempt})`, "done");
+      } else if (status === "fail") {
+        upsertLogStep(turnId, key, "terminal", `Sandbox run failed (attempt ${event.attempt}) — feeding the error back…`, "skip");
+      } else if (status === "network_blocked") {
+        const where = (event.destinations || []).join(", ") || "an external host";
+        upsertLogStep(turnId, key, "block", `Generated code tried to reach ${where} — blocked by the air-gap guard`, "fail");
+      } else if (status === "skipped") {
+        upsertLogStep(turnId, key, "terminal", "No executable Python block found — nothing to run", "done");
+      }
+      break;
+    }
     case "retrieval":
       if (status === "start") {
         upsertLogStep(turnId, "retrieval", "travel_explore", "Searching the corpus for relevant passages…", "active");
@@ -676,6 +1249,7 @@ function handleStreamEvent(turnId, event) {
       break;
     case "drafting": {
       const key = `drafting-${event.attempt}`;
+      draftAttemptByTurn[turnId] = event.attempt; // so nested model_call events key correctly
       if (status === "start") {
         const label = event.max_attempts > 1
           ? `Drafting answer (attempt ${event.attempt} of ${event.max_attempts})…`
@@ -685,6 +1259,47 @@ function handleStreamEvent(turnId, event) {
         upsertLogStep(turnId, key, "auto_awesome", `Drafted answer with ${event.citations_claimed} citation(s) (attempt ${event.attempt})`, "done");
       } else if (status === "error") {
         upsertLogStep(turnId, key, "auto_awesome", `Drafting backend unavailable on attempt ${event.attempt}`, "fail");
+      }
+      break;
+    }
+    // Fine-grained events from INSIDE one drafting attempt (agents/real.py):
+    // which local model is actually being called right now, and whether a
+    // citation-repair pass fired because the model came back with zero
+    // citations. Keyed per outer attempt + purpose + model so multiple model
+    // calls within one attempt (primary model, fallback model, repair pass)
+    // each get their own line instead of overwriting each other.
+    case "model_call": {
+      const attempt = draftAttemptByTurn[turnId] ?? 1;
+      const key = `model_call-${attempt}-${event.purpose}-${event.model}`;
+      if (event.purpose === "code") {
+        // No citations concept for generated code -- separate, simpler
+        // messaging from the document-drafting model_call events below.
+        if (status === "start") {
+          upsertLogStep(turnId, key, "smart_toy", `Generating code with ${event.model}…`, "active");
+        } else if (status === "done") {
+          upsertLogStep(turnId, key, "smart_toy", `Code generated by ${event.model}`, "done");
+        } else if (status === "error") {
+          upsertLogStep(turnId, key, "smart_toy", `${event.model} did not respond (${event.message || "error"})`, "fail");
+        }
+        break;
+      }
+      const isRepair = event.purpose === "citation_repair";
+      if (status === "start") {
+        const label = isRepair
+          ? `Asking ${event.model} to find a supporting citation…`
+          : `Writing a draft answer with ${event.model}…`;
+        upsertLogStep(turnId, key, "smart_toy", label, "active");
+      } else if (status === "done") {
+        const citeWord = event.citations === 1 ? "citation" : "citations";
+        upsertLogStep(turnId, key, "smart_toy", `${event.model} ${isRepair ? "found" : "returned"} ${event.citations} ${citeWord}`, "done");
+      } else if (status === "empty_citations") {
+        upsertLogStep(
+          turnId, key, "smart_toy",
+          `${event.model} returned zero citations` + (isRepair ? "" : " — trying citation repair…"),
+          "skip"
+        );
+      } else if (status === "error") {
+        upsertLogStep(turnId, key, "smart_toy", `${event.model} did not respond (${event.message || "error"})`, "fail");
       }
       break;
     }
@@ -713,12 +1328,35 @@ function handleStreamEvent(turnId, event) {
   }
 }
 
+function toggleToolLog(turnId) {
+  document.getElementById(`${turnId}-tool-log`)?.classList.toggle("hidden");
+  const chevron = document.getElementById(`${turnId}-tool-chevron`);
+  if (chevron) chevron.textContent = chevron.textContent === "chevron_right" ? "expand_more" : "chevron_right";
+}
+
 function renderAnswerBody(turnId, data) {
   const isAnswered = data.status === "answered";
   const statusPill = isAnswered
     ? `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-surface-container font-label-sm text-label-sm text-compartment-hse font-medium"><span class="w-1.5 h-1.5 rounded-full bg-compartment-hse"></span>Answered</span>`
     : `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-surface-container font-label-sm text-label-sm text-text-secondary font-medium"><span class="w-1.5 h-1.5 rounded-full bg-text-tertiary"></span>Abstained</span>`;
   const compPills = (data.effective_label.compartments || []).map(compPill).join("");
+
+  // The live log (liveLogs[turnId]) is about to be deleted once sendQuery's
+  // stream loop finishes -- capture it here as a permanent, collapsed record
+  // of what actually ran for this turn (which model, retrieval, citation
+  // repair, vision calls...), instead of that trail just disappearing the
+  // moment the answer renders.
+  const steps = liveLogs[turnId] || [];
+  const toolLogHtml = steps.length ? `
+    <div>
+      <button class="flex items-center gap-1 text-text-tertiary hover:text-text-primary font-label-sm text-label-sm transition-colors" onclick="toggleToolLog('${turnId}')" type="button">
+        <span class="material-symbols-outlined text-[15px]" id="${turnId}-tool-chevron">chevron_right</span>
+        Used ${steps.length} tool${steps.length === 1 ? "" : "s"}
+      </button>
+      <div class="hidden flex-col gap-space-xs mt-space-sm pl-space-md border-l border-border-subtle" id="${turnId}-tool-log">
+        ${steps.map(renderStepLine).join("")}
+      </div>
+    </div>` : "";
 
   const body = document.getElementById(`${turnId}-body`);
   body.className = "space-y-space-md turn-answer-in";
@@ -730,18 +1368,20 @@ function renderAnswerBody(turnId, data) {
         ${compPills}
       </div>
     </div>
+    ${toolLogHtml}
     <div class="bg-surface-raised rounded-xl p-space-xl shadow-sm space-y-space-md">
       <div class="markdown-body" id="${turnId}-answer"></div>
       ${renderCitations(data.citations)}
       ${renderDenials(data.denials)}
       <div class="pt-space-sm flex items-center justify-between flex-wrap gap-2">
         <div class="flex items-center gap-space-xs">
-          ${isAnswered && data.ledger_row_id ? `<a class="inline-flex items-center gap-space-xs px-space-md py-1.5 rounded-lg bg-surface-container text-text-primary font-title-sm text-title-sm hover:bg-surface-container-highest transition-colors shadow-sm" href="/report/${data.ledger_row_id}"><span class="material-symbols-outlined text-[16px]">description</span>Download Report (.docx)</a>` : ""}
+          ${isAnswered && data.ledger_row_id ? `<a class="inline-flex items-center gap-space-xs px-space-md py-1.5 rounded-lg bg-surface-container text-text-primary font-title-sm text-title-sm hover:bg-surface-container-highest transition-colors shadow-sm" href="/report/${data.ledger_row_id}"><span class="material-symbols-outlined text-[16px]">description</span>Word (.docx)</a>` : ""}
+          ${isAnswered && data.ledger_row_id ? `<a class="inline-flex items-center gap-space-xs px-space-md py-1.5 rounded-lg bg-surface-container text-text-primary font-title-sm text-title-sm hover:bg-surface-container-highest transition-colors shadow-sm" href="/report/${data.ledger_row_id}/xlsx"><span class="material-symbols-outlined text-[16px]">table_chart</span>Excel (.xlsx)</a>` : ""}
           <button class="inline-flex items-center gap-space-xs px-space-md py-1.5 rounded-lg bg-transparent text-text-secondary font-title-sm text-title-sm hover:text-text-primary hover:bg-surface-container transition-colors" onclick="document.getElementById('${turnId}-json').classList.toggle('hidden')" type="button">
             <span class="material-symbols-outlined text-[16px]">code</span>Raw JSON
           </button>
         </div>
-        <button class="w-8 h-8 rounded-lg flex items-center justify-center text-text-tertiary hover:text-text-primary hover:bg-surface-container transition-colors" onclick="navigator.clipboard.writeText(${JSON.stringify(data.answer)})" title="Copy response text" type="button">
+        <button class="w-8 h-8 rounded-lg flex items-center justify-center text-text-tertiary hover:text-text-primary hover:bg-surface-container transition-colors" onclick="navigator.clipboard.writeText(${escapeHtml(JSON.stringify(data.answer))})" title="Copy response text" type="button">
           <span class="material-symbols-outlined text-[18px]">content_copy</span>
         </button>
       </div>
@@ -786,6 +1426,7 @@ function renderAttachmentChip() {
   const chip = document.getElementById("attachmentChip");
   if (!pendingUpload) {
     chip.classList.add("hidden");
+    syncPromptBarHeight();
     return;
   }
   chip.classList.remove("hidden");
@@ -797,6 +1438,7 @@ function renderAttachmentChip() {
   if (pendingUpload.text_chunks) parts.push(`${pendingUpload.text_chunks} text section(s)`);
   if (pendingUpload.images) parts.push(`${pendingUpload.images} image(s)`);
   document.getElementById("attachmentMeta").textContent = parts.length ? `· ${parts.join(", ")}` : "";
+  syncPromptBarHeight();
 }
 
 async function removeAttachment() {
@@ -970,8 +1612,12 @@ async function sendQuery() {
         }
 
         if (event.stage === "final") {
+          const streamed = Boolean(liveStreams[turnId]);
+          await settleLiveStream(turnId);
           renderAnswerBody(turnId, event.response);
-          document.getElementById(`${turnId}-wrap`).scrollIntoView({ behavior: "smooth", block: "start" });
+          // After watching text stream in, jumping back to the question is
+          // jarring; only non-streamed answers scroll to the turn's top.
+          if (!streamed) document.getElementById(`${turnId}-wrap`).scrollIntoView({ behavior: "smooth", block: "start" });
           settled = true;
           if (event.response.conversation_id) {
             currentConversationId = event.response.conversation_id;
@@ -981,7 +1627,7 @@ async function sendQuery() {
           renderTurnError(turnId, event.message || "Query failed.");
           settled = true;
         } else {
-          handleStreamEvent(turnId, event);
+          dispatchLiveEvent(turnId, event);
         }
       }
     }
@@ -993,12 +1639,28 @@ async function sendQuery() {
     renderTurnError(turnId, "Query execution failed: " + err.message);
   } finally {
     delete liveLogs[turnId];
+    delete draftAttemptByTurn[turnId];
+    if (liveStreams[turnId]?.frame) clearTimeout(liveStreams[turnId].frame);
+    delete liveStreams[turnId];
+    delete pendingEvents[turnId];
     btn.disabled = false;
     icon.textContent = "arrow_upward";
   }
 }
 
 document.getElementById("sendBtn").addEventListener("click", sendQuery);
+
+/** Keeps the chat's bottom padding (CSS var --prompt-bar-h) equal to the
+ * floating prompt bar's real height. Called directly when the bar changes,
+ * and via ResizeObserver/resize for anything else (e.g. a taller textarea);
+ * the direct calls matter because ResizeObserver only reports on a repaint. */
+function syncPromptBarHeight() {
+  const h = document.getElementById("promptBarWrap").getBoundingClientRect().height;
+  if (h > 0) document.documentElement.style.setProperty("--prompt-bar-h", `${Math.ceil(h)}px`);
+}
+new ResizeObserver(syncPromptBarHeight).observe(document.getElementById("promptBarWrap"));
+window.addEventListener("resize", syncPromptBarHeight);
+syncPromptBarHeight();
 document.getElementById("questionInput").addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey) {
     e.preventDefault();
@@ -1238,6 +1900,210 @@ document.getElementById("verifyBtn").addEventListener("click", async () => {
 document.getElementById("fetchMoreBtn").addEventListener("click", () => {
   ledgerLimit += 50;
   loadLedger();
+});
+
+/* ========================= SOVEREIGNTY MONITOR ========================= */
+// Every row here comes straight from trust/network_monitor.py's real
+// connection log -- the same guard every outbound call in agents/real.py
+// passes through before a socket ever opens. Nothing on this panel is
+// synthesized client-side except the "Blocked (N)"/text filters, which
+// operate on the real fetched events, not on placeholder data.
+
+let netEvents = [];
+let netFilter = "all"; // "all" | "blocked"
+
+function fmtUptime(seconds) {
+  seconds = Math.floor(seconds || 0);
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+async function loadNetworkMonitor() {
+  try {
+    const [statsRes, eventsRes] = await Promise.all([
+      fetchAPI("/network/stats"),
+      fetchAPI("/network/events?limit=200"),
+    ]);
+    const stats = await statsRes.json();
+    netEvents = await eventsRes.json();
+    renderNetworkStats(stats);
+    renderNetworkEvents();
+  } catch (err) {
+    console.error("Failed to load network monitor:", err);
+  }
+}
+
+function renderNetworkStats(stats) {
+  document.getElementById("netStatTotal").textContent = stats.total;
+  document.getElementById("netStatAllowed").textContent = stats.allowed;
+  document.getElementById("netStatBlocked").textContent = stats.blocked;
+  document.getElementById("netStatHost").textContent = stats.active_host;
+  document.getElementById("netActiveHostBadge").textContent = `${stats.active_host} (Local Only)`;
+  document.getElementById("netUptime").textContent = fmtUptime(stats.uptime_seconds);
+  const bannerStatus = document.getElementById("netBannerStatus");
+  bannerStatus.textContent = stats.blocked > 0 ? "Air-Gap Active — Block(s) Recorded" : "Air-Gap Active";
+  document.getElementById("netBannerDetail").textContent = stats.blocked > 0
+    ? `Zero external connections made — ${stats.blocked} external attempt(s) stopped before leaving the machine`
+    : "Zero external connections made";
+}
+
+function renderNetworkEvents() {
+  const filtered = netEvents.filter(e => {
+    if (netFilter === "blocked" && e.allowed) return false;
+    const q = document.getElementById("netTextFilter").value.trim().toLowerCase();
+    if (!q) return true;
+    return e.process_label.toLowerCase().includes(q) || e.host.toLowerCase().includes(q);
+  });
+  document.getElementById("netBlockedFilterCount").textContent = netEvents.filter(e => !e.allowed).length;
+
+  const tbody = document.getElementById("netEventTableBody");
+  const empty = document.getElementById("netEventsEmpty");
+  if (filtered.length === 0) {
+    tbody.innerHTML = "";
+    empty.classList.remove("hidden");
+    empty.classList.add("flex");
+  } else {
+    empty.classList.add("hidden");
+    empty.classList.remove("flex");
+    tbody.innerHTML = filtered.map(e => {
+      const when = new Date(e.timestamp * 1000).toLocaleString();
+      const socket = `${escapeHtml(e.host)}:${e.port}`;
+      const statusPill = e.allowed
+        ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-container text-compartment-hse font-label-sm text-label-sm font-medium"><span class="material-symbols-outlined text-[12px]">check_circle</span>Allowed</span>`
+        : `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-clearance-secret/10 text-clearance-secret font-label-sm text-label-sm font-medium"><span class="material-symbols-outlined text-[12px]">block</span>Blocked</span>`;
+      const rowBg = e.allowed ? "" : "bg-clearance-secret/5";
+      return `
+      <tr class="border-b border-border-subtle/60 last:border-0 ${rowBg}">
+        <td class="px-space-md py-space-sm font-body-sm text-body-sm text-text-secondary whitespace-nowrap">${escapeHtml(when)}</td>
+        <td class="px-space-md py-space-sm font-body-sm text-body-sm text-text-primary font-medium whitespace-nowrap">${escapeHtml(e.process_label)}</td>
+        <td class="px-space-md py-space-sm font-body-sm text-body-sm text-text-secondary whitespace-nowrap">${socket}</td>
+        <td class="px-space-md py-space-sm whitespace-nowrap">${statusPill}</td>
+      </tr>`;
+    }).join("");
+  }
+  document.getElementById("netEventsShowingCount").textContent = `Showing ${filtered.length} of ${netEvents.length} recent transactions`;
+}
+
+document.querySelectorAll('[data-net-filter]').forEach(btn => {
+  btn.addEventListener("click", () => {
+    netFilter = btn.getAttribute("data-net-filter");
+    document.querySelectorAll('[data-net-filter]').forEach(b => {
+      const active = b === btn;
+      b.classList.toggle("bg-surface-raised", active);
+      b.classList.toggle("text-text-primary", active);
+      b.classList.toggle("shadow-sm", active);
+      b.classList.toggle("font-medium", active);
+      b.classList.toggle("text-text-secondary", !active);
+    });
+    renderNetworkEvents();
+  });
+});
+
+document.getElementById("netTextFilter").addEventListener("input", renderNetworkEvents);
+
+document.getElementById("netProbeBtn").addEventListener("click", async () => {
+  const btn = document.getElementById("netProbeBtn");
+  btn.disabled = true;
+  try {
+    await fetchAPI("/network/test-probe", { method: "POST" });
+  } catch (err) {
+    console.error("Test probe failed:", err);
+  } finally {
+    btn.disabled = false;
+    loadNetworkMonitor();
+  }
+});
+
+/* ---- Live socket-stream overlay (Workbench) ---- */
+// Polls the same real network log once a second while open. Rows that
+// arrive while it's open flash in (red for blocked), so a viewer can watch
+// each question's calls appear as they happen.
+const NET_DOCK_POLL_MS = 1000;
+let netDockTimer = null;
+let netDockLastSeenId = null; // null until the first fetch: existing rows don't flash
+
+function setNetDockOpen(open) {
+  const dock = document.getElementById("netDock");
+  const toggle = document.getElementById("netDockToggle");
+  dock.classList.toggle("hidden", !open);
+  dock.classList.toggle("flex", open);
+  document.body.classList.toggle("netdock-open", open);
+  toggle.setAttribute("aria-pressed", String(open));
+  toggle.classList.toggle("text-compartment-hse", open);
+  toggle.classList.toggle("text-text-secondary", !open);
+  toggle.classList.toggle("border-compartment-hse", open);
+  clearInterval(netDockTimer);
+  netDockTimer = null;
+  if (open) {
+    netDockLastSeenId = null;
+    pollNetDock();
+    netDockTimer = setInterval(pollNetDock, NET_DOCK_POLL_MS);
+  }
+}
+
+async function pollNetDock() {
+  try {
+    const [statsRes, eventsRes] = await Promise.all([
+      fetchAPI("/network/stats"),
+      fetchAPI("/network/events?limit=80"),
+    ]);
+    if (!statsRes.ok || !eventsRes.ok) throw new Error(`HTTP ${statsRes.status}/${eventsRes.status}`);
+    const stats = await statsRes.json();
+    const events = await eventsRes.json();
+    document.getElementById("netDockTotal").textContent = stats.total;
+    document.getElementById("netDockAllowed").textContent = stats.allowed;
+    document.getElementById("netDockBlocked").textContent = stats.blocked;
+    renderNetDock(events);
+    document.getElementById("netDockUpdated").textContent = `Live · updated ${new Date().toLocaleTimeString()}`;
+  } catch (err) {
+    document.getElementById("netDockUpdated").textContent = "Connection to monitor lost — retrying…";
+  }
+}
+
+function renderNetDock(events) {
+  const list = document.getElementById("netDockList");
+  if (!events.length) {
+    list.innerHTML = `<div class="px-space-md py-space-lg font-body-sm text-body-sm text-text-tertiary text-center">No calls yet. Ask a question and watch them appear here.</div>`;
+    netDockLastSeenId = 0;
+    return;
+  }
+  const firstLoad = netDockLastSeenId === null;
+  list.innerHTML = events.map(e => {
+    const isNew = !firstLoad && e.id > netDockLastSeenId;
+    const anim = isNew ? (e.allowed ? "net-row-new-allowed" : "net-row-new-blocked") : "";
+    const rowBg = e.allowed ? "" : "bg-clearance-secret/10";
+    const pill = e.allowed
+      ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-container text-compartment-hse font-label-sm text-label-sm font-medium shrink-0"><span class="material-symbols-outlined text-[12px]">check_circle</span>Allowed</span>`
+      : `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-clearance-secret/15 text-clearance-secret font-label-sm text-label-sm font-medium shrink-0"><span class="material-symbols-outlined text-[12px]">block</span>Blocked</span>`;
+    return `
+    <div class="px-space-md py-2 border-b border-border-subtle/60 flex items-center justify-between gap-space-sm ${rowBg} ${anim}">
+      <div class="flex flex-col min-w-0">
+        <span class="font-body-sm text-body-sm text-text-primary font-medium truncate">${escapeHtml(e.process_label)}</span>
+        <span class="font-label-sm text-label-sm text-text-secondary truncate">${escapeHtml(e.host)}:${e.port} · ${new Date(e.timestamp * 1000).toLocaleTimeString()}</span>
+      </div>
+      ${pill}
+    </div>`;
+  }).join("");
+  netDockLastSeenId = Math.max(netDockLastSeenId || 0, events[0].id);
+}
+
+document.getElementById("netDockToggle").addEventListener("click", () => {
+  setNetDockOpen(document.getElementById("netDock").classList.contains("hidden"));
+});
+document.getElementById("netDockClose").addEventListener("click", () => setNetDockOpen(false));
+
+document.getElementById("netExportBtn").addEventListener("click", () => {
+  const blob = new Blob([JSON.stringify(netEvents, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `severance-network-audit-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 });
 
 init();

@@ -7,7 +7,7 @@ Supports fail_first=True to test the retry loop deterministically.
 
 from __future__ import annotations
 
-from typing import Optional, Sequence
+from typing import Callable, Optional, Sequence
 from contracts import Citation, Draft, Passage
 
 
@@ -31,6 +31,7 @@ class MockAgent:
         passages: Sequence[Passage],
         feedback: Optional[str] = None,
         recent_context: str = "",
+        emit: Optional[Callable[[dict], None]] = None,
     ) -> Draft:
         """Generate a draft answer quoting real substrings of the provided passages."""
         self.calls += 1

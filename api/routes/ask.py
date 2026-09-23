@@ -23,6 +23,7 @@ from contracts import (
 from agents.mock import MockAgent
 from auth.deps import current_principal, get_db_path
 from deliver.docx import build_report, get_report_filename
+from deliver import xlsx as xlsx_report
 from harness.runner import run_ephemeral_query, run_query
 from ingest.ephemeral import discard_upload, get_upload, parse_upload
 from ingest.pdf import load_corpus
@@ -225,12 +226,8 @@ def ask_question_stream(
     return StreamingResponse(stream(), media_type="application/x-ndjson")
 
 
-@router.get("/report/{ledger_row_id}")
-def download_report(
-    ledger_row_id: int,
-    principal: Principal = Depends(current_principal),
-):
-    """Download Word report for an answered query with 3-way classification stamping.
+def _load_owned_report(ledger_row_id: int, principal: Principal) -> dict:
+    """Shared ownership-checked lookup for both report download endpoints.
 
     Only the employee who asked the original question (or an administrator) may
     download it. The full answer/citations/denials come from trust/reports.py,
@@ -238,20 +235,27 @@ def download_report(
     user as a transparency log, so it only ever stores a truncated preview.
     """
     db_path = get_db_path()
-
     report = get_report_data(db_path, ledger_row_id)
     if not report:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="No report data found for this ledger row. It may predate report storage, or the query was not answered.",
         )
-
     if report["person_id"] != principal.person_id and not principal.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You may only download reports for your own queries.",
         )
+    return report
 
+
+@router.get("/report/{ledger_row_id}")
+def download_report(
+    ledger_row_id: int,
+    principal: Principal = Depends(current_principal),
+):
+    """Download Word report for an answered query with 3-way classification stamping."""
+    report = _load_owned_report(ledger_row_id, principal)
     ask_response = AskResponse.model_validate(report["response"])
     docx_bytes = build_report(ask_response, question=report["question"])
     filename = get_report_filename(ask_response)
@@ -259,5 +263,26 @@ def download_report(
     return Response(
         content=docx_bytes,
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/report/{ledger_row_id}/xlsx")
+def download_report_xlsx(
+    ledger_row_id: int,
+    principal: Principal = Depends(current_principal),
+):
+    """Download the same verified report as an Excel workbook -- a Summary
+    sheet plus a structured Citations sheet, better suited to a spreadsheet
+    than Word prose. Same data, same ownership check, same refusal for an
+    abstained response as the Word report above."""
+    report = _load_owned_report(ledger_row_id, principal)
+    ask_response = AskResponse.model_validate(report["response"])
+    xlsx_bytes = xlsx_report.build_report(ask_response, question=report["question"])
+    filename = xlsx_report.get_report_filename(ask_response)
+
+    return Response(
+        content=xlsx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )

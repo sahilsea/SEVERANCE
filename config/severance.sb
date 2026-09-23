@@ -1,0 +1,45 @@
+;; macOS kernel sandbox (Seatbelt) profile for the whole SEVERANCE server.
+;; Launched via scripts/run_sandboxed.sh. Enforced by the macOS kernel, so it
+;; applies below the app's own Python-level guard (trust/network_monitor.py):
+;; even code that bypassed that guard could not reach the internet.
+;;
+;; Seatbelt ip filters only accept "localhost" or "*" as the host, so
+;; "localhost" here means the loopback interface only.
+
+(version 1)
+(allow default)
+
+;; ---- Network: loopback only -------------------------------------------
+(deny network*)
+(allow network-bind (local ip "localhost:*"))
+(allow network-inbound (local ip "localhost:*"))
+(allow network-outbound (remote ip "localhost:*"))
+;; Local unix-domain sockets (never leave the machine). DNS lookups go
+;; through mDNSResponder's socket; blocking it keeps names from being
+;; resolved at all, which is why OLLAMA_API_BASE uses 127.0.0.1, not
+;; "localhost".
+(allow network-outbound (remote unix-socket))
+(deny network-outbound (remote unix-socket (path-literal "/private/var/run/mDNSResponder")))
+
+;; ---- Files: writes only to the project folder and temp folders ---------
+(deny file-write*)
+(allow file-write*
+  (subpath (param "PROJECT_DIR"))
+  (subpath "/private/tmp")
+  (subpath "/private/var/folders")
+  (literal "/dev/null")
+  (literal "/dev/zero")
+  (regex #"^/dev/tty")
+  (regex #"^/dev/fd/"))
+
+;; ---- Files: personal folders are unreadable -----------------------------
+(deny file-read*
+  (subpath (string-append (param "HOME_DIR") "/.ssh"))
+  (subpath (string-append (param "HOME_DIR") "/.aws"))
+  (subpath (string-append (param "HOME_DIR") "/Documents"))
+  (subpath (string-append (param "HOME_DIR") "/Desktop"))
+  (subpath (string-append (param "HOME_DIR") "/Downloads"))
+  (subpath (string-append (param "HOME_DIR") "/Pictures"))
+  (subpath (string-append (param "HOME_DIR") "/Library/Keychains"))
+  (subpath (string-append (param "HOME_DIR") "/Library/Mail"))
+  (subpath (string-append (param "HOME_DIR") "/Library/Messages")))

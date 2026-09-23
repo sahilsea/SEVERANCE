@@ -27,9 +27,103 @@ import platform
 import re
 import subprocess
 import time
-from typing import Optional, Sequence
+from typing import Callable, Optional, Sequence
 import httpx
 from contracts import Citation, Draft, Passage
+from trust.network_monitor import ExternalConnectionBlocked, check_and_record
+
+
+def _emit(emit: Optional[Callable[[dict], None]], event: dict) -> None:
+    """No-op-safe emit helper: every caller (including the test suite's
+    MockAgent, and any caller that doesn't pass emit at all) is unaffected
+    when emit is None."""
+    if emit is not None:
+        emit(event)
+
+
+_JSON_ESCAPES = {'"': '"', "\\": "\\", "/": "/", "b": "\b", "f": "\f", "n": "\n", "r": "\r", "t": "\t"}
+
+
+def partial_json_string_field(raw: str, field: str) -> Optional[str]:
+    """Decode the value of string field `field` from a JSON object that may
+    still be mid-generation. Returns the decoded prefix available so far
+    (stopping before any incomplete escape), or None if the field hasn't
+    started yet. The prefix only ever grows as `raw` grows."""
+    match = re.search(r'"%s"\s*:\s*"' % re.escape(field), raw)
+    if not match:
+        return None
+    out = []
+    i, n = match.end(), len(raw)
+    while i < n:
+        c = raw[i]
+        if c == '"':
+            break
+        if c != "\\":
+            out.append(c)
+            i += 1
+            continue
+        if i + 1 >= n:
+            break
+        e = raw[i + 1]
+        if e in _JSON_ESCAPES:
+            out.append(_JSON_ESCAPES[e])
+            i += 2
+            continue
+        if e != "u":
+            out.append(e)
+            i += 2
+            continue
+        if i + 6 > n:
+            break
+        try:
+            code = int(raw[i + 2:i + 6], 16)
+        except ValueError:
+            break
+        if 0xD800 <= code <= 0xDBFF:
+            if i + 12 > n or raw[i + 6:i + 8] != "\\u":
+                break
+            try:
+                low = int(raw[i + 8:i + 12], 16)
+            except ValueError:
+                break
+            out.append(chr(0x10000 + ((code - 0xD800) << 10) + (low - 0xDC00)))
+            i += 12
+            continue
+        out.append(chr(code))
+        i += 6
+    return "".join(out)
+
+
+def _stream_emitter(
+    emit: Optional[Callable[[dict], None]], json_field: Optional[str] = None
+) -> Optional[Callable[[str], None]]:
+    """Build an on_token callback that forwards the model's live output to
+    `emit` as {"stage": "stream", "status": "delta", "text": ...} events.
+    With `json_field`, only that string field's decoded text is forwarded
+    (the model is writing JSON; the user should see the answer, not braces)."""
+    if emit is None:
+        return None
+    raw_parts: list[str] = []
+    state = {"sent": 0}
+
+    def on_token(piece: str) -> None:
+        if json_field is None:
+            emit({"stage": "stream", "status": "delta", "text": piece})
+            return
+        raw_parts.append(piece)
+        text = partial_json_string_field("".join(raw_parts), json_field)
+        if text is not None and len(text) > state["sent"]:
+            emit({"stage": "stream", "status": "delta", "text": text[state["sent"]:]})
+            state["sent"] = len(text)
+
+    return on_token
+
+
+def _is_vision_refusal(text: str) -> bool:
+    """granite3.2-vision's trained non-answer is the bare word "unanswerable"
+    (sometimes with punctuation); treat that, or an empty reply, as no answer."""
+    cleaned = re.sub(r"[^a-z]", "", (text or "").lower())
+    return cleaned in ("", "unanswerable", "unanswerablequestion", "notanswerable")
 
 
 class RealLlmAgent:
@@ -44,6 +138,13 @@ class RealLlmAgent:
         self.ollama_api_base = (ollama_api_base or os.getenv("OLLAMA_API_BASE", "http://localhost:11434")).rstrip("/")
         self.ollama_model = ollama_model or os.getenv("OLLAMA_MODEL", "granite4.1:3b")
         self.ollama_vision_model = os.getenv("OLLAMA_VISION_MODEL", "granite3.2-vision")
+        # Task-type model routing: a coding request is handled by a different,
+        # code-specialized local model than a document/summary question --
+        # not just a fallback-on-failure choice, a genuine per-task selection
+        # made by classify_intent() before any drafting call happens. Adding
+        # another specialized model later (e.g. a stronger reasoning model)
+        # is a one-line addition here, not a redesign.
+        self.ollama_code_model = os.getenv("OLLAMA_CODE_MODEL", "qwen2.5-coder:3b")
         # A second locally-installed text model tried, still fully locally,
         # only if the primary model produces zero citations. Different model
         # weights fail differently, so this is real added resilience without
@@ -68,7 +169,7 @@ class RealLlmAgent:
         self._ollama_launch_attempted = False
 
     def classify_intent(self, question: str, recent_context: str = "") -> str:
-        """Route a message BEFORE retrieval into one of three categories:
+        """Route a message BEFORE retrieval into one of five categories:
 
         - "content": a genuine request for information that lives in the
           document corpus. Proceed to retrieval + citation-grounded drafting
@@ -80,11 +181,32 @@ class RealLlmAgent:
           either abstains with a useless "no match" or, worse, invites the
           model to invent citations for something no document actually says.
           Answered separately with real, non-hallucinated data (see runner.py).
+        - "code": a request to write, explain, debug, or review CODE (any
+          programming language, scripts, queries, config/IaC). This has no
+          grounding passage in the document corpus either -- code correctness
+          comes from the model's own reasoning, not a verbatim quote -- so it
+          is routed to a separate, code-specialized local model instead of
+          the document-drafting model, and skips citation verification
+          entirely (there is nothing to verify a citation against). This is
+          the actual task-type model routing this app is built around: a
+          coding request must never share a model or a citation-verification
+          path with a document question.
+        - "calculation": a straightforward arithmetic calculation or unit
+          conversion (e.g. engineering unit conversions: pressure, volume
+          incl. barrels, temperature, length, mass). Routed to a real,
+          hand-verified deterministic tool (tools/calculator.py,
+          tools/units.py) -- NEVER computed by the model itself, since a
+          small local model gets arithmetic wrong often enough that this
+          matters. A multi-step calculation that needs real logic (loops,
+          conditionals, multiple intermediate values), not just one
+          expression or one conversion, is "code" instead -- the sandbox
+          actually running real code is more trustworthy there than forcing
+          a multi-step calculation through a single tool call.
         - "other": greeting, small talk, filler, or test input with no real
           information need of any kind. Abstain with a plain, honest message.
 
         Lexical retrieval scores term overlap, not intent -- it can't make
-        any of these three distinctions on its own. This needs an actual
+        any of these five distinctions on its own. This needs an actual
         judgment call, which only a model can make.
 
         Fails OPEN (returns "content") on any classification failure or
@@ -95,7 +217,7 @@ class RealLlmAgent:
         system_prompt = (
             "You classify a single user message for a corporate document search assistant. "
             "Respond STRICTLY in valid JSON: {\"category\": \"...\"} using exactly one of these "
-            "three values:\n"
+            "five values:\n"
             "- \"content\": a genuine request for information that could be answered FROM A "
             "DOCUMENT -- even if short, informally phrased, or mixed in with unrelated chatter. "
             "This INCLUDES any question asking what to do, how to handle, or what the correct "
@@ -107,6 +229,12 @@ class RealLlmAgent:
             "including remarking on and asking about ITS OWN behavior just now (e.g. its speed, "
             "how it answered, why it did something). This is NEVER about what the USER should do "
             "in some real-world situation.\n"
+            "- \"code\": a request to write, generate, explain, debug, fix, refactor, or review "
+            "programming code, a script, a query (SQL etc.), or configuration/infrastructure code. "
+            "This is about producing or reasoning about CODE, not about documents or the assistant.\n"
+            "- \"calculation\": a single arithmetic calculation or unit conversion (pressure, "
+            "volume, temperature, length, mass -- including petroleum barrels). NOT for anything "
+            "needing multiple steps, loops, or real logic -- that is \"code\" instead.\n"
             "- \"other\": a greeting, small talk, filler text, or test input with no real "
             "information need at all.\n\n"
             "Disambiguating examples (note the difference):\n"
@@ -123,7 +251,18 @@ class RealLlmAgent:
             "- \"ok what can I do here then ?\" -> capability (casual filler words like 'ok'/'then'/"
             "'so' wrapped around the question do NOT change its category -- strip filler mentally "
             "and classify the real question underneath: 'what can I do here' asks about the "
-            "assistant's own functions, same as 'what can you do for me')\n\n"
+            "assistant's own functions, same as 'what can you do for me')\n"
+            "- \"write a python function to parse this log file\" -> code\n"
+            "- \"why does my SQL query return duplicate rows\" -> code\n"
+            "- \"fix the bug in this script\" -> code\n"
+            "- \"what does this error message mean\" -> code (debugging code, not a document question)\n"
+            "- \"what is 450 * 12.5\" -> calculation\n"
+            "- \"convert 100 bar to psi\" -> calculation\n"
+            "- \"how many barrels is 5000 liters\" -> calculation\n"
+            "- \"what's the boiling point of water in fahrenheit\" -> calculation (212, a unit "
+            "conversion of a known constant -- NOT a document lookup)\n"
+            "- \"write code to convert a whole column of pressure readings from bar to psi\" -> code "
+            "(this needs real logic over a dataset, not one single-value conversion)\n\n"
             "Casual conversational wrapping (\"ok\", \"so\", \"then\", \"well\", trailing punctuation) "
             "is never itself a signal -- always classify based on the actual question inside it.\n\n"
             "If a RECENT CONVERSATION is given below, use it ONLY to resolve pronouns/references "
@@ -151,7 +290,7 @@ class RealLlmAgent:
                 # temperature=0.0: this runs exactly once per query with no
                 # retry, unlike drafting -- greedy decoding measurably reduced
                 # flip-flopping on borderline phrasing in live testing.
-                raw_response = self._call_ollama(system_prompt, user_prompt, temperature=0.0)
+                raw_response = self._call_ollama(system_prompt, user_prompt, temperature=0.0, process_label="intent-classification")
             except Exception as e:
                 print(f"[RealLlmAgent] Intent classification via Ollama failed ({e}).")
 
@@ -165,11 +304,92 @@ class RealLlmAgent:
                 clean = re.sub(r"\n?```$", "", clean)
             parsed = json.loads(clean)
             category = str(parsed.get("category", "content")).strip().lower()
-            return category if category in ("content", "capability", "other") else "content"
+            return category if category in ("content", "capability", "code", "calculation", "other") else "content"
         except Exception:
             return "content"
 
-    def draft_capability_answer(self, question: str, facts: str, recent_context: str = "") -> Optional[str]:
+    def extract_tool_call(self, question: str, recent_context: str = "") -> Optional[dict]:
+        """Extract a structured tool call for a "calculation" question --
+        this is genuine tool-calling, not the model doing arithmetic: the
+        model's ONLY job is to identify which deterministic tool applies and
+        pull out its arguments; tools/calculator.py or tools/units.py then
+        does the actual computation by hand-verified code, never the model's
+        own math. Returns None if extraction fails or produces something
+        that doesn't match either tool's expected shape -- the caller falls
+        back to the code-generation+sandbox path rather than guessing.
+        """
+        system_prompt = (
+            "You extract a structured tool call from a user's calculation or unit-conversion "
+            "request. Respond STRICTLY in valid JSON matching exactly ONE of these two shapes:\n\n"
+            "For a plain arithmetic calculation:\n"
+            '{"tool": "calculator", "expression": "<a valid Python arithmetic expression using '
+            'only numbers, + - * / // % ** and parentheses -- no words, no units>"}\n\n'
+            "For a unit conversion:\n"
+            '{"tool": "unit_converter", "value": <number>, "from_unit": "<code>", "to_unit": "<code>"}\n\n'
+            "Valid unit codes -- use EXACTLY these short codes, not full words:\n"
+            "- Pressure: pa, kpa, mpa, bar, psi, atm\n"
+            "- Temperature: c, f, k\n"
+            "- Volume: ml, l, m3, gal, bbl (bbl = petroleum barrel, the standard refinery volume "
+            "unit -- 158.987 liters)\n"
+            "- Length: mm, cm, m, km, in, ft, yd, mi\n"
+            "- Mass: mg, g, kg, ton, lb, oz\n\n"
+            "Examples:\n"
+            '- "what is 450 * 12.5" -> {"tool": "calculator", "expression": "450 * 12.5"}\n'
+            '- "convert 100 bar to psi" -> {"tool": "unit_converter", "value": 100, "from_unit": '
+            '"bar", "to_unit": "psi"}\n'
+            '- "how many barrels is 5000 liters" -> {"tool": "unit_converter", "value": 5000, '
+            '"from_unit": "l", "to_unit": "bbl"}\n'
+            '- "what\'s the boiling point of water in fahrenheit" -> {"tool": "unit_converter", '
+            '"value": 100, "from_unit": "c", "to_unit": "f"}'
+        )
+        user_prompt = f"Request: {question}"
+        if recent_context:
+            user_prompt += f"\n\nRECENT CONVERSATION (for context on a follow-up only):\n{recent_context}"
+
+        raw_response = None
+        if not self._ollama_unavailable:
+            try:
+                raw_response = self._call_ollama(system_prompt, user_prompt, temperature=0.0, process_label="tool-call-extraction")
+            except Exception as e:
+                print(f"[RealLlmAgent] Tool-call extraction via Ollama failed ({e}).")
+
+        if raw_response is None:
+            return None
+        try:
+            clean = raw_response.strip()
+            if clean.startswith("```"):
+                clean = re.sub(r"^```(?:json)?\n?", "", clean)
+                clean = re.sub(r"\n?```$", "", clean)
+            parsed = json.loads(clean)
+        except Exception:
+            return None
+
+        if not isinstance(parsed, dict):
+            return None
+        tool = parsed.get("tool")
+        if tool == "calculator" and isinstance(parsed.get("expression"), str):
+            return {"tool": "calculator", "expression": parsed["expression"]}
+        if (
+            tool == "unit_converter"
+            and isinstance(parsed.get("value"), (int, float))
+            and isinstance(parsed.get("from_unit"), str)
+            and isinstance(parsed.get("to_unit"), str)
+        ):
+            return {
+                "tool": "unit_converter",
+                "value": parsed["value"],
+                "from_unit": parsed["from_unit"],
+                "to_unit": parsed["to_unit"],
+            }
+        return None
+
+    def draft_capability_answer(
+        self,
+        question: str,
+        facts: str,
+        recent_context: str = "",
+        emit: Optional[Callable[[dict], None]] = None,
+    ) -> Optional[str]:
         """Answer a meta-question about the assistant/system itself in natural
         language, using ONLY the given ground-truth facts.
 
@@ -207,8 +427,14 @@ class RealLlmAgent:
 
         raw_response = None
         if not self._ollama_unavailable:
+            _emit(emit, {"stage": "stream", "status": "start", "purpose": "capability", "model": self.ollama_model})
             try:
-                raw_response = self._call_ollama(system_prompt, user_prompt)
+                raw_response = self._call_ollama(
+                    system_prompt,
+                    user_prompt,
+                    process_label="capability-answer",
+                    on_token=_stream_emitter(emit, json_field="answer"),
+                )
             except Exception as e:
                 print(f"[RealLlmAgent] Capability answer via Ollama failed ({e}).")
 
@@ -226,12 +452,87 @@ class RealLlmAgent:
         except Exception:
             return None
 
+    def draft_code(
+        self,
+        question: str,
+        recent_context: str = "",
+        feedback: Optional[str] = None,
+        emit: Optional[Callable[[dict], None]] = None,
+    ) -> Optional[str]:
+        """Answer a coding request (write/explain/debug/review code) using
+        the CODE-SPECIALIZED local model (self.ollama_code_model), never the
+        document-drafting model -- this is the actual per-task-type model
+        routing: a coding request is deliberately handled by a different
+        model than a document question, chosen by classify_intent() before
+        this is ever called.
+
+        Returns plain Markdown (fenced code blocks, prose explanation), not
+        the structured {answer, citations} shape draft() uses -- there is no
+        document passage for generated code to be a verbatim substring of,
+        so citation verification does not apply here (same reasoning as
+        analyze_image() for vision output). The UI must render this as
+        AI-generated code, not as a citation-verified document claim.
+
+        `feedback`, if given, is the REAL stderr/error from actually running
+        the previous attempt's code in tools/sandbox.py -- not a guess. This
+        is what turns code generation into a genuine generate-run-fix loop
+        (see harness/runner.py's code branch) instead of a one-shot reply.
+
+        Returns None on any failure so the caller can abstain honestly
+        instead of silently returning nothing.
+        """
+        system_prompt = (
+            "You are a careful, precise coding assistant running fully offline on the user's own "
+            "machine -- no code or question here ever leaves this machine. Write correct, working "
+            "code for the user's request. Use fenced Markdown code blocks (```language ... ```) for "
+            "all code, and brief prose only where it adds real value (a short explanation of "
+            "non-obvious choices, not a restatement of what the code obviously does). If the request "
+            "is ambiguous, make a reasonable assumption, state it briefly, and proceed -- don't just "
+            "ask a clarifying question and stop. If PREVIOUS ATTEMPT FEEDBACK is given below, that is "
+            "the real error from actually running your last attempt in a sandbox -- fix that exact "
+            "problem, don't just rewrite the code differently."
+        )
+        user_prompt = ""
+        if recent_context:
+            user_prompt += f"RECENT CONVERSATION (for context on a follow-up request only):\n{recent_context}\n\n"
+        user_prompt += f"Request: {question}"
+        if feedback:
+            user_prompt += f"\n\nPREVIOUS ATTEMPT FEEDBACK (real sandbox error, fix this exact issue):\n{feedback}"
+
+        _emit(emit, {"stage": "model_call", "status": "start", "purpose": "code", "model": self.ollama_code_model})
+        if self._ollama_unavailable:
+            _emit(emit, {"stage": "model_call", "status": "error", "purpose": "code", "model": self.ollama_code_model, "message": "Ollama unavailable"})
+            return None
+        _emit(emit, {"stage": "stream", "status": "start", "purpose": "code", "model": self.ollama_code_model})
+        try:
+            raw_response = self._call_ollama(
+                system_prompt,
+                user_prompt,
+                model=self.ollama_code_model,
+                json_mode=False,
+                num_predict=1500,
+                timeout=120.0,
+                process_label="code-generation",
+                on_token=_stream_emitter(emit),
+            )
+        except Exception as e:
+            if isinstance(e, httpx.TimeoutException):
+                self._ollama_unavailable = True
+            print(f"[RealLlmAgent] Code drafting via Ollama ({self.ollama_code_model}) failed ({e}).")
+            _emit(emit, {"stage": "model_call", "status": "error", "purpose": "code", "model": self.ollama_code_model, "message": str(e)})
+            return None
+
+        answer = raw_response.strip()
+        _emit(emit, {"stage": "model_call", "status": "done", "purpose": "code", "model": self.ollama_code_model})
+        return answer or None
+
     def draft(
         self,
         question: str,
         passages: Sequence[Passage],
         feedback: Optional[str] = None,
         recent_context: str = "",
+        emit: Optional[Callable[[dict], None]] = None,
     ) -> Draft:
         """Generate structured draft answer and verbatim citations from gated passages."""
         if not passages:
@@ -315,23 +616,38 @@ class RealLlmAgent:
 
             if self._ollama_unavailable:
                 break
+
+            _emit(emit, {"stage": "model_call", "status": "start", "purpose": "draft", "model": model_name})
+            _emit(emit, {"stage": "stream", "status": "start", "purpose": "draft", "model": model_name})
             try:
-                raw_response = self._call_ollama(system_prompt, user_prompt, model=model_name)
+                raw_response = self._call_ollama(
+                    system_prompt,
+                    user_prompt,
+                    model=model_name,
+                    process_label="document-drafting",
+                    on_token=_stream_emitter(emit, json_field="answer"),
+                )
             except Exception as e:
                 if isinstance(e, httpx.TimeoutException):
                     self._ollama_unavailable = True
                 print(f"[RealLlmAgent] Ollama ({model_name}) call failed ({e}).")
+                _emit(emit, {"stage": "model_call", "status": "error", "purpose": "draft", "model": model_name, "message": str(e)})
                 continue
 
             draft = self._parse_draft(raw_response, passages)
             if draft.citations:
+                _emit(emit, {"stage": "model_call", "status": "done", "purpose": "draft", "model": model_name, "citations": len(draft.citations)})
                 return draft
             fallback_draft = fallback_draft or draft
             print(f"[RealLlmAgent] Ollama ({model_name}) returned zero citations. Trying citation repair.")
+            _emit(emit, {"stage": "model_call", "status": "empty_citations", "purpose": "draft", "model": model_name})
 
+            _emit(emit, {"stage": "model_call", "status": "start", "purpose": "citation_repair", "model": model_name})
             repaired = self._repair_citations(model_name, draft.answer, passages)
             if repaired:
+                _emit(emit, {"stage": "model_call", "status": "done", "purpose": "citation_repair", "model": model_name, "citations": len(repaired)})
                 return Draft(answer=draft.answer, citations=repaired)
+            _emit(emit, {"stage": "model_call", "status": "empty_citations", "purpose": "citation_repair", "model": model_name})
 
         if fallback_draft is not None:
             # No local model produced a citation, but at least one responded --
@@ -379,7 +695,7 @@ class RealLlmAgent:
         )
 
         try:
-            raw_response = self._call_ollama(system_prompt, user_prompt, model=model_name)
+            raw_response = self._call_ollama(system_prompt, user_prompt, model=model_name, process_label="citation-repair")
         except Exception as e:
             print(f"[RealLlmAgent] Citation repair via Ollama ({model_name}) failed ({e}).")
             return []
@@ -414,6 +730,10 @@ class RealLlmAgent:
 
         health_url = f"{self.ollama_api_base}/api/tags"
         try:
+            check_and_record("ollama-health-check", health_url)
+        except ExternalConnectionBlocked:
+            return  # never reachable if OLLAMA_API_BASE were misconfigured to a non-loopback host
+        try:
             with httpx.Client(timeout=2.0) as client:
                 client.get(health_url)
             return  # already up
@@ -446,9 +766,33 @@ class RealLlmAgent:
         print("[RealLlmAgent] Ollama app launched but server did not come up within 8s; proceeding to fallbacks for this request.")
 
     def _call_ollama(
-        self, system_prompt: str, user_prompt: str, model: Optional[str] = None, temperature: float = 0.1
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        model: Optional[str] = None,
+        temperature: float = 0.1,
+        json_mode: bool = True,
+        num_predict: int = 700,
+        timeout: float = 60.0,
+        process_label: str = "ollama-inference",
+        on_token: Optional[Callable[[str], None]] = None,
     ) -> str:
-        """Call local Ollama endpoint with the given model (defaults to self.ollama_model)."""
+        """Call local Ollama endpoint with the given model (defaults to self.ollama_model).
+
+        json_mode=False is for callers that want free-form markdown back
+        (e.g. generated code) instead of the structured {answer, citations}
+        JSON the drafting/classification paths use -- forcing JSON mode onto
+        a code response means escaping every newline and quote inside a
+        JSON string, which is fragile for a small model and buys nothing
+        here since code answers aren't citation-verified anyway.
+
+        `process_label` identifies WHICH task this call is for (intent
+        classification, document drafting, code generation, ...) in
+        trust/network_monitor.py's real connection log -- purely a labeling
+        detail for the Sovereignty Monitor UI, not a security boundary; the
+        boundary is check_and_record() itself, called unconditionally below
+        regardless of what label was passed.
+        """
         self._ensure_ollama_running()
         url = f"{self.ollama_api_base}/api/chat"
         payload = {
@@ -457,52 +801,92 @@ class RealLlmAgent:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            "format": "json",
             "stream": False,
             # num_predict caps generation length so a verbose or looping
-            # response can't run out the full request timeout -- 700 tokens
-            # comfortably covers an ~80-150 word answer plus a few JSON
-            # citation objects, with headroom, but bounds the worst case.
-            "options": {"temperature": temperature, "num_predict": 700},
+            # response can't run out the full request timeout.
+            "options": {"temperature": temperature, "num_predict": num_predict},
         }
-        with httpx.Client(timeout=60.0) as client:
-            res = client.post(url, json=payload)
-            res.raise_for_status()
-            data = res.json()
-            return data["message"]["content"]
+        if json_mode:
+            payload["format"] = "json"
+        # Real enforcement, not just a log: raises and never opens the
+        # socket below if `url` isn't loopback. See trust/network_monitor.py.
+        check_and_record(process_label, url)
+        if on_token is None:
+            with httpx.Client(timeout=timeout) as client:
+                res = client.post(url, json=payload)
+                res.raise_for_status()
+                data = res.json()
+                return data["message"]["content"]
+
+        # Streaming: Ollama sends one JSON line per generated chunk; each is
+        # passed to on_token as it arrives, and the full text is returned
+        # exactly as the non-streaming path would.
+        payload["stream"] = True
+        parts: list[str] = []
+        with httpx.Client(timeout=timeout) as client:
+            with client.stream("POST", url, json=payload) as res:
+                res.raise_for_status()
+                for line in res.iter_lines():
+                    if not line:
+                        continue
+                    chunk = json.loads(line)
+                    if chunk.get("error"):
+                        raise RuntimeError(f"Ollama error: {chunk['error']}")
+                    piece = chunk.get("message", {}).get("content", "")
+                    if piece:
+                        parts.append(piece)
+                        on_token(piece)
+                    if chunk.get("done"):
+                        break
+        return "".join(parts)
 
     def analyze_image(self, question: str, image_base64: str) -> str:
-        """Ask the local vision model (granite3.2-vision by default) to answer
-        a question about ONE image.
+        """Ask the local vision model (granite3.2-vision by default) about ONE
+        image, returning plain natural-language text.
 
-        This deliberately returns plain natural-language text, NOT the
-        structured {answer, citations} JSON draft() uses -- there is no
-        verbatim substring of an image to verify a "citation" against, so
-        harness/runner.py labels this output as an unverified visual
-        observation, distinct from citation-verified text findings, rather
-        than routing it through harness/verify.py at all.
+        This deliberately returns plain text, NOT the structured {answer,
+        citations} JSON draft() uses -- there is no verbatim substring of an
+        image to verify a "citation" against, so harness/runner.py labels this
+        output as an unverified visual observation rather than routing it
+        through harness/verify.py at all.
+
+        PROMPTING: granite3.2-vision was trained on document-VQA data where
+        "unanswerable" is a standard answer, and it gives exactly that single
+        word to most question-style or "read the text" prompts -- tested live
+        on a photographed handwritten notebook page. Prompts that open with
+        "Describe this image in detail" reliably get a real description, so
+        the user's question is folded into that form, with a plain-description
+        retry if the model still refuses.
         """
+        focused = f"Describe this image in detail, focusing on: {question.strip()}"
+        answer = self._vision_call(focused, image_base64)
+        if not _is_vision_refusal(answer):
+            return answer
+        general = self._vision_call("Describe this image in detail.", image_base64)
+        if not _is_vision_refusal(general):
+            return (
+                "*(The vision model could not answer the question directly, so this is its general "
+                "description of the image.)*\n\n" + general
+            )
+        return (
+            "The on-device vision model could not interpret this image. Clear, well-lit photos of "
+            "printed text, labels, or diagrams work best; dense or messy handwriting is often beyond "
+            "what this small local model can read."
+        )
+
+    def _vision_call(self, prompt: str, image_base64: str) -> str:
         self._ensure_ollama_running()
         url = f"{self.ollama_api_base}/api/chat"
         payload = {
             "model": self.ollama_vision_model,
-            "messages": [
-                {
-                    "role": "user",
-                    "content": (
-                        "Answer the following question about this image as accurately and specifically "
-                        "as possible, describing only what is actually visible. If the question doesn't "
-                        "apply to what's shown, say so plainly.\n\nQuestion: " + question
-                    ),
-                    "images": [image_base64],
-                }
-            ],
+            "messages": [{"role": "user", "content": prompt, "images": [image_base64]}],
             "stream": False,
-            "options": {"temperature": 0.1},
+            "options": {"temperature": 0.1, "num_predict": 600},
         }
-        # Vision models take meaningfully longer than text-only calls (image
-        # encoding + a bigger multimodal forward pass), hence the longer timeout.
-        with httpx.Client(timeout=90.0) as client:
+        # On an 8 GB machine a full-size photo took 40-100s in live testing
+        # (model swap-in plus image encoding), hence the long timeout.
+        check_and_record("vision-analysis", url)
+        with httpx.Client(timeout=180.0) as client:
             res = client.post(url, json=payload)
             try:
                 res.raise_for_status()

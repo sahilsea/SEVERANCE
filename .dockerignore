@@ -4,7 +4,10 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .git/
+.claude/
 .env
 severance.db
+severance.db*
 *.db
+data/
 .DS_Store

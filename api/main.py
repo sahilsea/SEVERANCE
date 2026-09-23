@@ -16,16 +16,24 @@ from fastapi.staticfiles import StaticFiles
 from contracts import Principal
 from auth.deps import current_principal, get_db_path
 from auth.session import COOKIE_NAME, verify_session_token
-from auth.sponsors import init_grants_tables, verify_sponsors
+from auth.sponsors import init_grants_tables, seed_sponsor_accounts, verify_sponsors
 from auth.users import get_principal, init_users_table
 from ingest.seed import seed_initial_admin
 from trust.conversations import init_conversations_table
 from trust.ledger import init_ledger_table
+from trust.network_monitor import init_network_log_table, mark_process_start
 from trust.reports import init_reports_table
-from api.routes import admin, ask, auth, conversations, documents, grants, ledger
+from api.routes import admin, ask, auth, conversations, documents, grants, ledger, network
 
 UI_DIR = Path(__file__).parent.parent / "ui"
 STATIC_DIR = UI_DIR / "static"
+
+# These HTML pages are auth-gated and change with every UI edit -- a browser
+# caching them (even briefly, via heuristic caching in the absence of any
+# Cache-Control header) means a user can be looking at a stale build after a
+# real fix ships, with no visible indication anything is wrong. Force
+# revalidation on every load.
+NO_CACHE_HEADERS = {"Cache-Control": "no-store, must-revalidate"}
 
 
 @asynccontextmanager
@@ -37,11 +45,23 @@ async def lifespan(app: FastAPI):
     init_grants_tables(db_path)
     init_reports_table(db_path)
     init_conversations_table(db_path)
+    init_network_log_table(db_path)
+    mark_process_start()
 
     # Seed initial administrator account if database is fresh
     seeded = seed_initial_admin(db_path)
     if seeded:
         print("[STARTUP] Fresh environment: Seeded initial administrator account.")
+
+    # Bootstrap any declared compartment sponsor account that doesn't exist yet
+    # (idempotent -- a no-op once they're all provisioned). Without this, the
+    # sole sponsor of a compartment could never receive it through the app's
+    # own UI: they can't grant it to themselves, and no one else is
+    # authorized to grant it either until they hold it. See
+    # auth/sponsors.py::seed_sponsor_accounts for the full reasoning.
+    newly_seeded_sponsors = seed_sponsor_accounts(db_path)
+    if newly_seeded_sponsors:
+        print(f"[STARTUP] Bootstrapped compartment sponsor account(s): {', '.join(newly_seeded_sponsors)}.")
 
     # Startup sponsor verification check
     try:
@@ -74,6 +94,20 @@ app.add_middleware(
 if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
+
+@app.middleware("http")
+async def no_store_static_assets(request: Request, call_next):
+    """StaticFiles has no per-response header hook, so this applies the same
+    no-store policy to /static/* as NO_CACHE_HEADERS does for the HTML pages
+    above -- otherwise a JS edit (e.g. app.js) can silently fail to reach a
+    browser that cached the old file, with no visible sign anything is wrong.
+    This app has no build step or content-hashed filenames to cache-bust
+    with, so "always revalidate" is the only option that keeps edits live."""
+    response = await call_next(request)
+    if request.url.path.startswith("/static/"):
+        response.headers["Cache-Control"] = "no-store, must-revalidate"
+    return response
+
 # Register API Routers
 app.include_router(auth.router)
 app.include_router(admin.router)
@@ -82,6 +116,7 @@ app.include_router(ask.router)
 app.include_router(documents.router)
 app.include_router(ledger.router)
 app.include_router(conversations.router)
+app.include_router(network.router)
 
 
 @app.get("/me")
@@ -109,7 +144,7 @@ def index(request: Request):
 def login_page():
     """Serve authentication UI."""
     login_path = UI_DIR / "login.html"
-    return FileResponse(str(login_path))
+    return FileResponse(str(login_path), headers=NO_CACHE_HEADERS)
 
 
 @app.get("/app")
@@ -119,7 +154,7 @@ def app_page(request: Request):
     if not token or not verify_session_token(token):
         return RedirectResponse(url="/login")
     app_path = UI_DIR / "app.html"
-    return FileResponse(str(app_path))
+    return FileResponse(str(app_path), headers=NO_CACHE_HEADERS)
 
 
 @app.get("/admin")
@@ -129,4 +164,4 @@ def admin_page(request: Request):
     if not token or not verify_session_token(token):
         return RedirectResponse(url="/login")
     admin_path = UI_DIR / "admin.html"
-    return FileResponse(str(admin_path))
+    return FileResponse(str(admin_path), headers=NO_CACHE_HEADERS)
