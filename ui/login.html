@@ -11,8 +11,7 @@
     document.documentElement.setAttribute("data-theme", t || "dark");
   })();
 </script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500&display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+<link href="/static/vendor/fonts.css" rel="stylesheet">
 <style>
   :root {
     --color-surface: 15 18 22; --color-surface-canvas: 15 18 22; --color-surface-raised: 23 27 33; --color-surface-subtle: 29 34 42;
@@ -40,7 +39,7 @@
   }
   @layer base { html, body { margin: 0; padding: 0; } } ::-webkit-scrollbar { display: none; }
 </style>
-<script src="https://cdn.tailwindcss.com"></script>
+<script src="/static/vendor/tailwindcss-play.js"></script>
 <script id="tailwind-config">
 tailwind.config = { theme: { extend: {
   "colors": { "secondary": "rgb(var(--color-secondary) / <alpha-value>)", "clearance-internal": "rgb(var(--color-clearance-internal) / <alpha-value>)", "clearance-confidential": "rgb(var(--color-clearance-confidential) / <alpha-value>)", "surface-canvas": "rgb(var(--color-surface-canvas) / <alpha-value>)", "text-tertiary": "rgb(var(--color-text-tertiary) / <alpha-value>)", "primary": "rgb(var(--color-primary) / <alpha-value>)", "primary-container": "rgb(var(--color-primary-container) / <alpha-value>)", "on-primary": "rgb(var(--color-on-primary) / <alpha-value>)", "surface-raised": "rgb(var(--color-surface-raised) / <alpha-value>)", "compartment-hse": "rgb(var(--color-compartment-hse) / <alpha-value>)", "surface-subtle": "rgb(var(--color-surface-subtle) / <alpha-value>)", "border-subtle": "rgb(var(--color-border-subtle) / <alpha-value>)", "surface": "rgb(var(--color-surface) / <alpha-value>)", "text-primary": "rgb(var(--color-text-primary) / <alpha-value>)", "text-secondary": "rgb(var(--color-text-secondary) / <alpha-value>)", "error": "rgb(var(--color-error) / <alpha-value>)", "inverse-surface": "rgb(var(--color-inverse-surface) / <alpha-value>)", "inverse-on-surface": "rgb(var(--color-inverse-on-surface) / <alpha-value>)" },
