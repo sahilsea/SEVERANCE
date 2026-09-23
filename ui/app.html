@@ -1067,6 +1067,14 @@ function updateLiveStreamForEvent(turnId, event) {
     setLiveStatus(turnId, "fact_check", "text-primary thinking-dot", `Draft written by ${s.model} — verifying every citation word for word…`);
   } else if (stage === "verification" && status === "pass") {
     setLiveStatus(turnId, "verified", "text-compartment-hse", "Citations verified — finalizing answer…");
+  } else if (stage === "grounding" && status === "start") {
+    setLiveStatus(turnId, "rule", "text-primary thinking-dot", "Citations verified — checking every sentence against the source…");
+  } else if (stage === "grounding" && status === "trimmed") {
+    setLiveStatus(turnId, "rule", "text-clearance-confidential", `Removing ${event.removed} statement(s) the source doesn't support…`);
+  } else if (stage === "grounding" && status === "fail") {
+    setLiveStatus(turnId, "cancel", "text-clearance-secret", "No statement matched the source — draft discarded, retrying…");
+    revealAllNow(turnId);
+    document.getElementById(`${turnId}-live-text`)?.classList.add("opacity-40");
   } else if (stage === "verification" && status === "fail") {
     setLiveStatus(turnId, "cancel", "text-clearance-secret", "This draft failed citation verification — discarded, retrying…");
     revealAllNow(turnId);
@@ -1310,6 +1318,19 @@ function handleStreamEvent(turnId, event) {
         upsertLogStep(turnId, key, "fact_check", `Citations verified (attempt ${event.attempt})`, "done");
       } else if (status === "fail") {
         upsertLogStep(turnId, key, "fact_check", `Citation verification failed (attempt ${event.attempt}) — retrying…`, "fail");
+      }
+      break;
+    }
+    case "grounding": {
+      const key = `grounding-${event.attempt}`;
+      if (status === "start") {
+        upsertLogStep(turnId, key, "rule", "Checking every sentence against the source passages…", "active");
+      } else if (status === "pass") {
+        upsertLogStep(turnId, key, "rule", "Every sentence matched the source passages", "done");
+      } else if (status === "trimmed") {
+        upsertLogStep(turnId, key, "rule", `Removed ${event.removed} statement(s) not found in the source passages`, "skip");
+      } else if (status === "fail") {
+        upsertLogStep(turnId, key, "rule", "No statement matched the source passages — retrying…", "fail");
       }
       break;
     }

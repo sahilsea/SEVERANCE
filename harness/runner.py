@@ -23,6 +23,7 @@ from contracts import (
     AskResponse,
     Citation,
     Denial,
+    Draft,
     Label,
     Passage,
     Principal,
@@ -31,6 +32,7 @@ from contracts import (
 from agents.base import Agent
 from harness.retrieve import retrieve
 from harness.verify import check as verify_check
+from harness import grounding
 from ingest.ephemeral import EphemeralUpload
 from trust.conversations import append_turn, conversation_owner, create_conversation, get_recent_context
 from trust.labels import can_read, inherit_label
@@ -42,6 +44,36 @@ from tools.units import UnitError, convert_unit
 
 DEFAULT_MAX_RETRIES = 3
 CODE_MAX_ATTEMPTS = 3
+
+
+def _ground_draft(draft: Draft, passages: Sequence[Passage], emit: Callable[[dict], None], attempt: int):
+    """Sentence-level grounding after citations verify (see harness/grounding.py).
+
+    Returns (draft_to_accept, None) -- with unsupported sentences removed and
+    a visible note saying how many -- or (None, feedback) when no sentence at
+    all is supported, so the caller retries like any other verification
+    failure."""
+    emit({"stage": "grounding", "status": "start", "attempt": attempt})
+    result = grounding.check(draft.answer, passages)
+    if not result.unsupported:
+        emit({"stage": "grounding", "status": "pass", "attempt": attempt, "checked": result.checked})
+        return draft, None
+    if len(result.unsupported) >= result.checked:
+        emit({"stage": "grounding", "status": "fail", "attempt": attempt, "checked": result.checked})
+        example = result.unsupported[0][:120]
+        return None, (
+            f"Attempt {attempt}: none of the answer's statements could be matched to the passages "
+            f"(for example: '{example}'). Only state facts that are actually written in the passages."
+        )
+    removed = len(result.unsupported)
+    trimmed = grounding.remove_sentences(draft.answer, result.unsupported)
+    note = (
+        f"\n\n*{removed} statement{'s were' if removed != 1 else ' was'} removed because "
+        f"{'they' if removed != 1 else 'it'} could not be matched to the source passages.*"
+    )
+    emit({"stage": "grounding", "status": "trimmed", "attempt": attempt,
+          "checked": result.checked, "removed": removed})
+    return Draft(answer=trimmed + note, citations=draft.citations), None
 
 
 def _network_destinations(sandbox_result: dict) -> list[str]:
@@ -603,8 +635,12 @@ def run_query(
         if failure is None:
             # Verification passed completely
             _emit({"stage": "verification", "status": "pass", "attempt": attempt})
-            successful_draft = draft
-            break
+            grounded, grounding_feedback = _ground_draft(draft, allowed_passages, _emit, attempt)
+            if grounded is not None:
+                successful_draft = grounded
+                break
+            feedback = grounding_feedback
+            continue
 
         _emit({"stage": "verification", "status": "fail", "attempt": attempt, "reason": failure})
         # Feed the precise failure reason back into the next attempt
@@ -746,8 +782,12 @@ def run_ephemeral_query(
             failure = verify_check(draft.citations, passages)
             if failure is None:
                 _emit({"stage": "verification", "status": "pass", "attempt": attempt})
-                successful_draft = draft
-                break
+                grounded, grounding_feedback = _ground_draft(draft, passages, _emit, attempt)
+                if grounded is not None:
+                    successful_draft = grounded
+                    break
+                feedback = grounding_feedback
+                continue
             _emit({"stage": "verification", "status": "fail", "attempt": attempt, "reason": failure})
             avail_str = ", ".join(f"doc_id='{p.doc_id}' page {p.page}" for p in passages)
             feedback = (
