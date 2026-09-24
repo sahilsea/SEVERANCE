@@ -16,9 +16,9 @@ inside it). What it actually enforces, per run:
      process count) applied via preexec_fn, to contain runaway resource use
      -- a crude fork-bomb/memory-bomb backstop, not a full quota system.
   4. No network access. On macOS (the app not already sandboxed) the macOS
-     kernel kills the process on any network operation -- raw sockets,
-     ctypes and subprocesses included -- and file writes are limited to the
-     run's own directories. Elsewhere, name resolution and connect() are
+     kernel refuses every network operation -- raw sockets, ctypes and
+     subprocesses included -- and file writes are limited to the run's own
+     directories. Elsewhere, name resolution and connect() are
      blocked at the Python level only. Every attempt is logged to the real
      network monitor. See the mode notes above _NETWORK_PREAMBLE.
   5. A dedicated, empty temp working directory per run, deleted afterward.
@@ -33,7 +33,6 @@ import json
 import os
 import re
 import resource
-import signal
 import shutil
 import subprocess
 import sys
@@ -95,15 +94,16 @@ def _set_resource_limits() -> None:
 # Two enforcement modes, chosen per run by _os_sandbox_available():
 #
 # OS MODE (macOS, app not already inside a sandbox): the child runs under
-# sandbox-exec with a profile that makes the KERNEL kill it (SIGKILL) on any
-# network operation, and allows file writes only in its own directories.
-# Nothing inside the process -- raw _socket, ctypes, reloading socket -- can
-# get past that. The Python preamble only REPORTS the destination it is about
-# to try and then lets the real call through, so the kernel is the thing that
-# stops it. An attempt is recorded only when the process was genuinely killed
-# by the kernel, so code cannot forge log entries by writing to the report
-# file (a report without a kill is ignored); at worst it could mislabel the
-# destination of a real attempt it actually made.
+# sandbox-exec with a profile in which the KERNEL denies every network
+# operation (the call fails with "Operation not permitted") and file writes
+# outside its own directories. Nothing inside the process -- raw _socket,
+# ctypes, reloading socket -- can get past that. The Python preamble only
+# REPORTS the destination it is about to try and then lets the real call
+# through, so the kernel is what stops it. The kernel denies rather than kills
+# (SIGKILL): a sandbox kill makes macOS show a "Python quit unexpectedly"
+# dialog every time, and it offers no silent, unforgeable record of a denial.
+# So the LOG is best-effort, as in Python mode: code could fake or hide its own
+# entries, but never reach the network.
 #
 # PYTHON MODE (fallback: already sandboxed -- macOS refuses to nest
 # sandbox-exec -- or not macOS): the preamble blocks name resolution and
@@ -161,7 +161,7 @@ _SANDBOX_EXEC = "/usr/bin/sandbox-exec"
 _CHILD_PROFILE = """
 (version 1)
 (allow default)
-(deny network* (with send-signal SIGKILL))
+(deny network*)
 (deny file-write*)
 (allow file-write*
   (subpath (param "WORKDIR"))
@@ -174,7 +174,6 @@ _CHILD_PROFILE = """
 REPORT_FILENAME = "network_attempts.jsonl"
 SANDBOX_PROCESS_LABEL = "code-sandbox"
 MAX_REPORTED_ATTEMPTS = 10
-UNKNOWN_DESTINATION = "unknown (raw socket)"
 _VALID_HOST = re.compile(r"^[A-Za-z0-9._:%\[\]-]{1,253}$")
 _os_sandbox_cache: Optional[bool] = None
 
@@ -275,21 +274,13 @@ def run_python(code: str, timeout: float = DEFAULT_TIMEOUT_SECONDS, db_path: Opt
                 "timed_out": True,
             }
 
-        reports = _read_reports(report_path)
-        if os_mode:
-            killed_by_kernel = result["returncode"] == -signal.SIGKILL and not result["timed_out"]
-            if killed_by_kernel:
-                attempt = reports[-1] if reports else {"host": UNKNOWN_DESTINATION, "port": 0}
-                attempts = [attempt]
-                where = f"{attempt['host']}:{attempt['port']}" if attempt["port"] else attempt["host"]
-                result["stderr"] += (
-                    f"\n[Network access blocked by the OS sandbox: the code tried to reach {where}; "
-                    f"the kernel stopped the process before any connection was made.]"
-                )
-            else:
-                attempts = []  # a report without a kernel kill was never a real attempt
-        else:
-            attempts = reports
+        attempts = _read_reports(report_path)
+        if os_mode and attempts:
+            where = ", ".join(f"{a['host']}:{a['port']}" if a["port"] else a["host"] for a in attempts)
+            result["stderr"] += (
+                f"\n[Network access blocked by the OS sandbox: the code tried to reach {where}; "
+                f"the kernel refused the connection.]"
+            )
 
         for attempt in attempts:
             record_blocked_attempt(SANDBOX_PROCESS_LABEL, attempt["host"], attempt["port"], db_path=db_path)
