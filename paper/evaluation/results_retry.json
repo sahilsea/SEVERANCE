@@ -1,0 +1,47 @@
+{
+  "question": "write python code that converts the string \"abc\" to an integer using int() and prints the result",
+  "trials": [
+    {
+      "trial": 1,
+      "category": [
+        "code"
+      ],
+      "sandbox": [
+        "fail",
+        "pass"
+      ],
+      "seconds": 11.2,
+      "first_error": [
+        ", in <module>\n    result = int(\"abc\")\n             ^^^^^^^^^^\nValueError: invalid literal for int() with base 10: 'abc'\n"
+      ]
+    },
+    {
+      "trial": 2,
+      "category": [
+        "code"
+      ],
+      "sandbox": [
+        "fail",
+        "pass"
+      ],
+      "seconds": 16.3,
+      "first_error": [
+        ", in <module>\n    result = int(\"abc\")\n             ^^^^^^^^^^\nValueError: invalid literal for int() with base 10: 'abc'\n"
+      ]
+    },
+    {
+      "trial": 3,
+      "category": [
+        "code"
+      ],
+      "sandbox": [
+        "fail",
+        "pass"
+      ],
+      "seconds": 16.5,
+      "first_error": [
+        ", in <module>\n    result = int(\"abc\")\n             ^^^^^^^^^^\nValueError: invalid literal for int() with base 10: 'abc'\n"
+      ]
+    }
+  ]
+}

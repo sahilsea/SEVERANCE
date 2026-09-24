@@ -4,7 +4,20 @@
     {
       "name": "severance-api",
       "runtimeExecutable": ".venv/bin/uvicorn",
-      "runtimeArgs": ["api.main:app", "--host", "127.0.0.1", "--port", "8000", "--reload"],
+      "runtimeArgs": [
+        "api.main:app",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8000",
+        "--reload"
+      ],
+      "port": 8000
+    },
+    {
+      "name": "severance-sandboxed",
+      "runtimeExecutable": "scripts/run_sandboxed.sh",
+      "runtimeArgs": [],
       "port": 8000
     }
   ]

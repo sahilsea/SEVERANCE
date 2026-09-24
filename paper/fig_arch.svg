@@ -1,0 +1,129 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1620" height="900" viewBox="0 0 1620 900" font-family="Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#334155"/>
+    </marker>
+    <marker id="r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#B45309"/>
+    </marker>
+  </defs>
+  <rect width="1620" height="900" fill="#ffffff"/>
+
+  <!-- legend -->
+  <rect x="40" y="28" width="26" height="18" rx="4" fill="#1E3A5F"/>
+  <text x="76" y="43" font-size="20" fill="#1f2937">Deterministic code (makes every decision)</text>
+  <rect x="520" y="28" width="26" height="18" rx="4" fill="#F59E0B"/>
+  <text x="556" y="43" font-size="20" fill="#1f2937">Local LLM call (proposes only)</text>
+  <rect x="900" y="28" width="26" height="18" rx="4" fill="#E2E8F0" stroke="#64748B"/>
+  <text x="936" y="43" font-size="20" fill="#1f2937">Data / output</text>
+
+  <!-- row 1 -->
+  <g font-size="19" text-anchor="middle">
+    <rect x="40" y="90" width="200" height="90" rx="10" fill="#E2E8F0" stroke="#64748B"/>
+    <text x="140" y="130" fill="#0f172a" font-weight="bold">User query</text>
+    <text x="140" y="156" fill="#334155" font-size="16">text, PDF, image</text>
+
+    <rect x="290" y="90" width="220" height="90" rx="10" fill="#1E3A5F"/>
+    <text x="400" y="128" fill="#fff" font-weight="bold">Session auth</text>
+    <text x="400" y="154" fill="#CBD5E1" font-size="16">HMAC cookie → principal</text>
+
+    <rect x="560" y="90" width="220" height="90" rx="10" fill="#F59E0B"/>
+    <text x="670" y="128" fill="#1f2937" font-weight="bold">Intent router</text>
+    <text x="670" y="154" fill="#1f2937" font-size="16">5-way task classifier</text>
+
+    <!-- branches -->
+    <rect x="860" y="80" width="250" height="60" rx="10" fill="#E2E8F0" stroke="#64748B"/>
+    <text x="985" y="117" fill="#0f172a">calculation → tool call</text>
+    <rect x="1140" y="80" width="300" height="60" rx="10" fill="#1E3A5F"/>
+    <text x="1290" y="117" fill="#fff">calculator / unit converter</text>
+
+    <rect x="860" y="160" width="250" height="60" rx="10" fill="#E2E8F0" stroke="#64748B"/>
+    <text x="985" y="197" fill="#0f172a">code → coder model</text>
+    <rect x="1140" y="160" width="300" height="60" rx="10" fill="#1E3A5F"/>
+    <text x="1290" y="197" fill="#fff">OS sandbox, run → fix ×3</text>
+
+    <rect x="860" y="240" width="250" height="60" rx="10" fill="#E2E8F0" stroke="#64748B"/>
+    <text x="985" y="277" fill="#0f172a">capability / other</text>
+    <rect x="1140" y="240" width="300" height="60" rx="10" fill="#1E3A5F"/>
+    <text x="1290" y="277" fill="#fff">facts-only answer / decline</text>
+  </g>
+  <line x1="240" y1="135" x2="286" y2="135" stroke="#334155" stroke-width="3" marker-end="url(#a)"/>
+  <line x1="510" y1="135" x2="556" y2="135" stroke="#334155" stroke-width="3" marker-end="url(#a)"/>
+  <line x1="780" y1="135" x2="856" y2="110" stroke="#334155" stroke-width="3" marker-end="url(#a)"/>
+  <line x1="780" y1="140" x2="856" y2="190" stroke="#334155" stroke-width="3" marker-end="url(#a)"/>
+  <line x1="780" y1="145" x2="856" y2="270" stroke="#334155" stroke-width="3" marker-end="url(#a)"/>
+  <line x1="1110" y1="110" x2="1136" y2="110" stroke="#334155" stroke-width="3" marker-end="url(#a)"/>
+  <line x1="1110" y1="190" x2="1136" y2="190" stroke="#334155" stroke-width="3" marker-end="url(#a)"/>
+  <line x1="1110" y1="270" x2="1136" y2="270" stroke="#334155" stroke-width="3" marker-end="url(#a)"/>
+
+  <!-- content path, row 2 -->
+  <path d="M670 180 L670 380" stroke="#334155" stroke-width="3" fill="none" marker-end="url(#a)"/>
+  <text x="685" y="300" font-size="18" fill="#334155">content</text>
+
+  <g font-size="18" text-anchor="middle">
+    <rect x="40" y="390" width="250" height="110" rx="10" fill="#E2E8F0" stroke="#64748B"/>
+    <text x="165" y="430" fill="#0f172a" font-weight="bold">Corpus</text>
+    <text x="165" y="456" fill="#334155" font-size="15">page passages + labels</text>
+    <text x="165" y="478" fill="#334155" font-size="15">(text layer or on-device OCR)</text>
+
+    <rect x="560" y="390" width="230" height="110" rx="10" fill="#1E3A5F"/>
+    <text x="675" y="428" fill="#fff" font-weight="bold">Two-pass retrieval</text>
+    <text x="675" y="454" fill="#CBD5E1" font-size="15">1: BM25-style score all</text>
+    <text x="675" y="476" fill="#CBD5E1" font-size="15">2: two-axis gate</text>
+
+    <rect x="840" y="390" width="210" height="110" rx="10" fill="#F59E0B"/>
+    <text x="945" y="433" fill="#1f2937" font-weight="bold">Draft answer</text>
+    <text x="945" y="459" fill="#1f2937" font-size="15">+ claimed citations</text>
+    <text x="945" y="481" fill="#1f2937" font-size="15">(allowed text only)</text>
+
+    <rect x="1100" y="390" width="210" height="110" rx="10" fill="#1E3A5F"/>
+    <text x="1205" y="433" fill="#fff" font-weight="bold">Citation verifier</text>
+    <text x="1205" y="459" fill="#CBD5E1" font-size="15">verbatim, same doc</text>
+    <text x="1205" y="481" fill="#CBD5E1" font-size="15">and same page</text>
+
+    <rect x="1360" y="390" width="210" height="110" rx="10" fill="#1E3A5F"/>
+    <text x="1465" y="433" fill="#fff" font-weight="bold">Grounding filter</text>
+    <text x="1465" y="459" fill="#CBD5E1" font-size="15">drop unsupported</text>
+    <text x="1465" y="481" fill="#CBD5E1" font-size="15">sentences</text>
+  </g>
+  <line x1="290" y1="445" x2="556" y2="445" stroke="#334155" stroke-width="3" marker-end="url(#a)"/>
+  <line x1="790" y1="445" x2="836" y2="445" stroke="#334155" stroke-width="3" marker-end="url(#a)"/>
+  <line x1="1050" y1="445" x2="1096" y2="445" stroke="#334155" stroke-width="3" marker-end="url(#a)"/>
+  <line x1="1310" y1="445" x2="1356" y2="445" stroke="#334155" stroke-width="3" marker-end="url(#a)"/>
+
+  <!-- denied pile -->
+  <rect x="330" y="530" width="220" height="70" rx="10" fill="#FEE2E2" stroke="#B91C1C"/>
+  <text x="440" y="560" font-size="16" text-anchor="middle" fill="#7F1D1D" font-weight="bold">Denied: text discarded</text>
+  <text x="440" y="583" font-size="15" text-anchor="middle" fill="#7F1D1D">doc id + reason only</text>
+  <path d="M600 500 L550 540" stroke="#B91C1C" stroke-width="3" fill="none" marker-end="url(#a)"/>
+
+  <!-- retry loop -->
+  <path d="M1205 500 C1205 580 945 580 945 504" stroke="#B45309" stroke-width="3" fill="none" stroke-dasharray="8 6" marker-end="url(#r)"/>
+  <text x="1000" y="612" font-size="16" text-anchor="start" fill="#B45309">fail → exact reason fed back</text><text x="1000" y="634" font-size="16" text-anchor="start" fill="#B45309">(max 3 attempts), then abstain</text>
+
+  <!-- outputs -->
+  <g font-size="17" text-anchor="middle">
+    <rect x="1360" y="560" width="210" height="100" rx="10" fill="#1E3A5F"/>
+    <text x="1465" y="598" fill="#fff" font-weight="bold">Label inheritance</text>
+    <text x="1465" y="624" fill="#CBD5E1" font-size="15">highest tier + union</text>
+    <text x="1465" y="645" fill="#CBD5E1" font-size="15">of compartments</text>
+
+    <rect x="1360" y="700" width="210" height="80" rx="10" fill="#E2E8F0" stroke="#64748B"/>
+    <text x="1465" y="735" fill="#0f172a" font-weight="bold">Answer + citations</text>
+    <text x="1465" y="760" fill="#334155" font-size="15">stamped .docx / .xlsx</text>
+
+    <rect x="1080" y="700" width="230" height="80" rx="10" fill="#1E3A5F"/>
+    <text x="1195" y="735" fill="#fff" font-weight="bold">Hash-chained ledger</text>
+    <text x="1195" y="760" fill="#CBD5E1" font-size="15">SHA-256 prev-hash link</text>
+  </g>
+  <line x1="1465" y1="500" x2="1465" y2="556" stroke="#334155" stroke-width="3" marker-end="url(#a)"/>
+  <line x1="1465" y1="660" x2="1465" y2="696" stroke="#334155" stroke-width="3" marker-end="url(#a)"/>
+  <line x1="1360" y1="740" x2="1314" y2="740" stroke="#334155" stroke-width="3" marker-end="url(#a)"/>
+
+  <!-- egress guard band -->
+  <rect x="40" y="810" width="1530" height="60" rx="10" fill="#ECFDF5" stroke="#047857" stroke-width="2"/>
+  <text x="805" y="847" font-size="19" text-anchor="middle" fill="#065F46" font-weight="bold">Egress guard: every outbound call (LLM, health check, sandbox) is checked loopback-only BEFORE a socket opens and logged to the network monitor</text>
+  <line x1="670" y1="180" x2="670" y2="180" stroke="none"/>
+  <path d="M880 500 L880 806" stroke="#047857" stroke-width="2" stroke-dasharray="4 5" fill="none"/>
+  <path d="M780 172 L815 172 L815 806" stroke="#047857" stroke-width="2" stroke-dasharray="4 5" fill="none"/>
+</svg>

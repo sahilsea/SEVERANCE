@@ -1,0 +1,1233 @@
+{
+  "rows": [
+    {
+      "id": "C1",
+      "question": "How do the regulations define an off site emergency?",
+      "expected_category": "content",
+      "routed_category": "content",
+      "seconds": 68.9,
+      "error": null,
+      "status": "abstained",
+      "answer": "Response withheld: The drafting model was unable to provide citations that could be verbatim verified against source passages (Attempt 3 verification failed: Citation 1 quote 'Level-III emergency falls under the purview of Dis...' was NOT found verbatim in doc_id='emergency_rulebook' page 14.. Note: The ONLY readable passages in context are [doc_id='emergency_rulebook' page 73, doc_id='emergency_rulebook' page 8, doc_id='emergency_rulebook' page 14]. Ensure all quotes are exact verbatim substrings and page numbers match these exactly.).",
+      "citations": [],
+      "effective_tier": "public",
+      "draft_attempts": 3,
+      "verification": [
+        "fail",
+        "fail",
+        "fail"
+      ],
+      "verification_fail_reasons": [
+        "Citation 1 quote 'Level-III emergency falls under the purview of Dis...' was NOT found verbatim in doc_id='emergency_rulebook' page 14.",
+        "Citation 1 quote 'Level-III emergency falls under the purview of Dis...' was NOT found verbatim in doc_id='emergency_rulebook' page 14.",
+        "Citation 1 quote 'Level-III emergency falls under the purview of Dis...' was NOT found verbatim in doc_id='emergency_rulebook' page 14."
+      ],
+      "grounding": [],
+      "code_attempts": 0,
+      "sandbox": [],
+      "calculation": [],
+      "expected_sources": [
+        [
+          "emergency_rulebook",
+          3
+        ]
+      ],
+      "source_hit": false,
+      "retrieved": [
+        [
+          "emergency_rulebook",
+          73
+        ],
+        [
+          "emergency_rulebook",
+          8
+        ],
+        [
+          "emergency_rulebook",
+          14
+        ]
+      ],
+      "expected_retrieved": false
+    },
+    {
+      "id": "C2",
+      "question": "What are the responsibilities of the Chief Incident Controller?",
+      "expected_category": "content",
+      "routed_category": "content",
+      "seconds": 21.4,
+      "error": null,
+      "status": "answered",
+      "answer": "The Chief Incident Controller (CIC) has overall responsibility to protect personnel, site facilities, and the public before, during, and after an emergency or disaster. Key duties include preparing, reviewing, and updating the Emergency Response Document Management Plan (ERDMP) as per Check List-5, assessing the situation and declaring an emergency, mobilising main coordinators and key personnel, activating the Emergency Control Centre, taking decisions on seeking assistance from mutual aid members and external agencies like Police, Fire Brigade, Hospitals etc. in consultation with the Site Incident Controller (SIC), continuously reviewing the situation and deciding on appropriate response strategies, taking stock of casualties and ensuring timely medical attention, ensuring correct accounting and position of personnel after the emergency, and ordering evacuation of personnel as necessary. Additionally, the CIC must maintain security of the office in the event of an office evacuation, provide office security and assist authorities in civil unrest, obtain initial briefing from CIC/SIC and provide security information/status reports to SIC during emergencies, assume responsibility for any delegated task, and assess the emergency to identify security-specific problems and recommend solutions to the CIC.",
+      "citations": [
+        [
+          "emergency_rulebook",
+          20
+        ]
+      ],
+      "effective_tier": "internal",
+      "draft_attempts": 1,
+      "verification": [
+        "pass"
+      ],
+      "verification_fail_reasons": [],
+      "grounding": [
+        {
+          "status": "pass",
+          "checked": 3,
+          "removed": null
+        }
+      ],
+      "code_attempts": 0,
+      "sandbox": [],
+      "calculation": [],
+      "expected_sources": [
+        [
+          "emergency_rulebook",
+          20
+        ],
+        [
+          "emergency_rulebook",
+          21
+        ],
+        [
+          "emergency_rulebook",
+          22
+        ]
+      ],
+      "source_hit": true,
+      "retrieved": [
+        [
+          "emergency_rulebook",
+          20
+        ],
+        [
+          "emergency_rulebook",
+          19
+        ],
+        [
+          "emergency_rulebook",
+          24
+        ]
+      ],
+      "expected_retrieved": true
+    },
+    {
+      "id": "C3",
+      "question": "What are the duties of the Site Incident Controller?",
+      "expected_category": "content",
+      "routed_category": "content",
+      "seconds": 17.7,
+      "error": null,
+      "status": "answered",
+      "answer": "The Site Incident Controller (SIC) is nominated by the entity for each 24-hour shift and reports directly to the Site Incident Controller. Responsibilities include receiving information from the field, acting as the site incident controller until the designated person arrives, and, depending on emergency level, activating the Emergency Response Deployment Management Plan (ERDMP) and informing relevant authorities as per the communication flow chart.",
+      "citations": [
+        [
+          "emergency_rulebook",
+          20
+        ]
+      ],
+      "effective_tier": "internal",
+      "draft_attempts": 1,
+      "verification": [
+        "pass"
+      ],
+      "verification_fail_reasons": [],
+      "grounding": [
+        {
+          "status": "pass",
+          "checked": 2,
+          "removed": null
+        }
+      ],
+      "code_attempts": 0,
+      "sandbox": [],
+      "calculation": [],
+      "expected_sources": [
+        [
+          "emergency_rulebook",
+          20
+        ],
+        [
+          "emergency_rulebook",
+          21
+        ],
+        [
+          "emergency_rulebook",
+          23
+        ]
+      ],
+      "source_hit": true,
+      "retrieved": [
+        [
+          "emergency_rulebook",
+          20
+        ],
+        [
+          "emergency_rulebook",
+          26
+        ],
+        [
+          "emergency_rulebook",
+          19
+        ]
+      ],
+      "expected_retrieved": true
+    },
+    {
+      "id": "C4",
+      "question": "Which incidents must be reported as major incidents?",
+      "expected_category": "content",
+      "routed_category": "content",
+      "seconds": 12.9,
+      "error": null,
+      "status": "answered",
+      "answer": "Incidents must be reported as major if they involve fire lasting more than 15 minutes, explosion or blowout, fatal injury, loss exceeding Rs. 20 Lac, cumulative man hours lost over 500, or plant shutdown/outage due to the incident.",
+      "citations": [
+        [
+          "emergency_rulebook",
+          33
+        ]
+      ],
+      "effective_tier": "internal",
+      "draft_attempts": 1,
+      "verification": [
+        "pass"
+      ],
+      "verification_fail_reasons": [],
+      "grounding": [
+        {
+          "status": "pass",
+          "checked": 2,
+          "removed": null
+        }
+      ],
+      "code_attempts": 0,
+      "sandbox": [],
+      "calculation": [],
+      "expected_sources": [
+        [
+          "emergency_rulebook",
+          34
+        ],
+        [
+          "emergency_rulebook",
+          49
+        ],
+        [
+          "emergency_rulebook",
+          50
+        ]
+      ],
+      "source_hit": false,
+      "retrieved": [
+        [
+          "emergency_rulebook",
+          34
+        ],
+        [
+          "emergency_rulebook",
+          49
+        ],
+        [
+          "emergency_rulebook",
+          33
+        ]
+      ],
+      "expected_retrieved": true
+    },
+    {
+      "id": "C5",
+      "question": "What emergency control systems and facilities should an installation have?",
+      "expected_category": "content",
+      "routed_category": "content",
+      "seconds": 59.1,
+      "error": null,
+      "status": "answered",
+      "answer": "- fire and gas detection system\n- fire protection system (Active and Passive)\n- rescue facilities and personal protective equipments (PPEs)\n- first aid facilities, in house medical facilities, or a tie-up with nearby hospital or health center\n- communication facilities\n- escape route and evacuation zones\n- emergency shutdown system\n\n*1 statement was removed because it could not be matched to the source passages.*",
+      "citations": [
+        [
+          "emergency_rulebook",
+          30
+        ],
+        [
+          "emergency_rulebook",
+          30
+        ],
+        [
+          "emergency_rulebook",
+          29
+        ]
+      ],
+      "effective_tier": "internal",
+      "draft_attempts": 2,
+      "verification": [
+        "fail",
+        "pass"
+      ],
+      "verification_fail_reasons": [
+        "Citation 1 quote '(2) The available emergency control systems and fa...' was NOT found verbatim in doc_id='emergency_rulebook' page 30."
+      ],
+      "grounding": [
+        {
+          "status": "trimmed",
+          "checked": 7,
+          "removed": 1
+        }
+      ],
+      "code_attempts": 0,
+      "sandbox": [],
+      "calculation": [],
+      "expected_sources": [
+        [
+          "emergency_rulebook",
+          30
+        ]
+      ],
+      "source_hit": true,
+      "retrieved": [
+        [
+          "emergency_rulebook",
+          43
+        ],
+        [
+          "emergency_rulebook",
+          30
+        ],
+        [
+          "emergency_rulebook",
+          29
+        ]
+      ],
+      "expected_retrieved": true
+    },
+    {
+      "id": "C6",
+      "question": "What information does a transport emergency card contain?",
+      "expected_category": "content",
+      "routed_category": "content",
+      "seconds": 32.4,
+      "error": null,
+      "status": "answered",
+      "answer": "A Transport Emergency Card (TREM Card) includes the Nature of Hazard, Protective Devices, Emergency Action for Spillage and Fire, First Aid instructions, Chemical Abstract Service (CAS) number, Emergency Telephone Numbers/mobile numbers, and contact details for the supplying and receiving companies, as well as Transporter, civic authorities, fire and police.",
+      "citations": [
+        [
+          "emergency_rulebook",
+          36
+        ],
+        [
+          "emergency_rulebook",
+          36
+        ]
+      ],
+      "effective_tier": "internal",
+      "draft_attempts": 1,
+      "verification": [
+        "pass"
+      ],
+      "verification_fail_reasons": [],
+      "grounding": [
+        {
+          "status": "pass",
+          "checked": 1,
+          "removed": null
+        }
+      ],
+      "code_attempts": 0,
+      "sandbox": [],
+      "calculation": [],
+      "expected_sources": [
+        [
+          "emergency_rulebook",
+          56
+        ],
+        [
+          "emergency_rulebook",
+          58
+        ]
+      ],
+      "source_hit": false,
+      "retrieved": [
+        [
+          "emergency_rulebook",
+          71
+        ],
+        [
+          "emergency_rulebook",
+          36
+        ],
+        [
+          "emergency_rulebook",
+          56
+        ]
+      ],
+      "expected_retrieved": true
+    },
+    {
+      "id": "C7",
+      "question": "What are the overall objectives of an emergency control organization?",
+      "expected_category": "content",
+      "routed_category": "content",
+      "seconds": 13.3,
+      "error": null,
+      "status": "answered",
+      "answer": "The overall objectives of an emergency control organization are to (a) act promptly before, after and during the incident, (b) prevent or limit impact on other areas and off-site, (c) assign emergency personnel compatible with their normal work functions wherever feasible, and (d) ensure employees assume additional responsibilities via the ERDMP procedure when an emergency alarm sounds.",
+      "citations": [
+        [
+          "emergency_rulebook",
+          18
+        ]
+      ],
+      "effective_tier": "internal",
+      "draft_attempts": 1,
+      "verification": [
+        "pass"
+      ],
+      "verification_fail_reasons": [],
+      "grounding": [
+        {
+          "status": "pass",
+          "checked": 1,
+          "removed": null
+        }
+      ],
+      "code_attempts": 0,
+      "sandbox": [],
+      "calculation": [],
+      "expected_sources": [
+        [
+          "emergency_rulebook",
+          18
+        ]
+      ],
+      "source_hit": true,
+      "retrieved": [
+        [
+          "emergency_rulebook",
+          18
+        ],
+        [
+          "emergency_rulebook",
+          73
+        ],
+        [
+          "emergency_rulebook",
+          17
+        ]
+      ],
+      "expected_retrieved": true
+    },
+    {
+      "id": "C8",
+      "question": "What should the termination of an emergency concentrate on?",
+      "expected_category": "content",
+      "routed_category": "content",
+      "seconds": 13.5,
+      "error": null,
+      "status": "answered",
+      "answer": "For Level-I and II emergencies, this declaration is made via siren per the Siren Code; Level-III emergencies require District Authority notification through appropriate channels to ensure all parties are informed.\n\n*1 statement was removed because it could not be matched to the source passages.*",
+      "citations": [
+        [
+          "emergency_rulebook",
+          35
+        ]
+      ],
+      "effective_tier": "internal",
+      "draft_attempts": 1,
+      "verification": [
+        "pass"
+      ],
+      "verification_fail_reasons": [],
+      "grounding": [
+        {
+          "status": "trimmed",
+          "checked": 2,
+          "removed": 1
+        }
+      ],
+      "code_attempts": 0,
+      "sandbox": [],
+      "calculation": [],
+      "expected_sources": [
+        [
+          "emergency_rulebook",
+          35
+        ]
+      ],
+      "source_hit": true,
+      "retrieved": [
+        [
+          "emergency_rulebook",
+          35
+        ],
+        [
+          "emergency_rulebook",
+          62
+        ],
+        [
+          "emergency_rulebook",
+          7
+        ]
+      ],
+      "expected_retrieved": true
+    },
+    {
+      "id": "C9",
+      "question": "What is the responsibility of the Recorder during an emergency?",
+      "expected_category": "content",
+      "routed_category": "content",
+      "seconds": 12.6,
+      "error": null,
+      "status": "answered",
+      "answer": "The Recorder's duties include maintaining an accurate time record of key incident events and actions, updating essential equipment checklist status, ensuring all status and information are current, transferring recorded material to an alternate ECC room if needed, and keeping a log book. They must also record incident status on the board/display manually or electronically and ensure all information is correctly displayed.",
+      "citations": [
+        [
+          "emergency_rulebook",
+          25
+        ]
+      ],
+      "effective_tier": "internal",
+      "draft_attempts": 1,
+      "verification": [
+        "pass"
+      ],
+      "verification_fail_reasons": [],
+      "grounding": [
+        {
+          "status": "pass",
+          "checked": 2,
+          "removed": null
+        }
+      ],
+      "code_attempts": 0,
+      "sandbox": [],
+      "calculation": [],
+      "expected_sources": [
+        [
+          "emergency_rulebook",
+          25
+        ]
+      ],
+      "source_hit": true,
+      "retrieved": [
+        [
+          "emergency_rulebook",
+          25
+        ],
+        [
+          "emergency_rulebook",
+          24
+        ],
+        [
+          "emergency_rulebook",
+          8
+        ]
+      ],
+      "expected_retrieved": true
+    },
+    {
+      "id": "C10",
+      "question": "How is individual risk per annum categorized?",
+      "expected_category": "content",
+      "routed_category": "content",
+      "seconds": 14.9,
+      "error": null,
+      "status": "answered",
+      "answer": "Individual Risk per Annum (IRPA) is categorized into four risk levels based on probability: 10^-3/yr (High), 10^-4/yr (High), 10^-5/yr (Intolerable), and 10^-6/yr (Negligible).\n\n*1 statement was removed because it could not be matched to the source passages.*",
+      "citations": [
+        [
+          "emergency_rulebook",
+          11
+        ]
+      ],
+      "effective_tier": "internal",
+      "draft_attempts": 1,
+      "verification": [
+        "pass"
+      ],
+      "verification_fail_reasons": [],
+      "grounding": [
+        {
+          "status": "trimmed",
+          "checked": 2,
+          "removed": 1
+        }
+      ],
+      "code_attempts": 0,
+      "sandbox": [],
+      "calculation": [],
+      "expected_sources": [
+        [
+          "emergency_rulebook",
+          11
+        ]
+      ],
+      "source_hit": true,
+      "retrieved": [
+        [
+          "emergency_rulebook",
+          11
+        ],
+        [
+          "emergency_rulebook",
+          59
+        ],
+        [
+          "emergency_rulebook",
+          60
+        ]
+      ],
+      "expected_retrieved": true
+    },
+    {
+      "id": "C11",
+      "question": "What are the objectives of preparing an ERDMP?",
+      "expected_category": "content",
+      "routed_category": "content",
+      "seconds": 36.1,
+      "error": null,
+      "status": "answered",
+      "answer": "The overall objectives of an emergency control organization under the ERDMP include promptly acting before, after, and during an incident (72), preventing or limiting impact on other areas and off-site (b), providing emergency personnel selected for duties compatible with their normal functions wherever feasible (c), requiring employees to assume additional responsibilities as per the ERDMP procedure when an emergency alarm sounds (d), and ensuring round-the-clock coverage with alternate arrangements for each role (73).",
+      "citations": [
+        [
+          "emergency_rulebook",
+          18
+        ],
+        [
+          "emergency_rulebook",
+          18
+        ],
+        [
+          "emergency_rulebook",
+          18
+        ]
+      ],
+      "effective_tier": "internal",
+      "draft_attempts": 1,
+      "verification": [
+        "pass"
+      ],
+      "verification_fail_reasons": [],
+      "grounding": [
+        {
+          "status": "pass",
+          "checked": 1,
+          "removed": null
+        }
+      ],
+      "code_attempts": 0,
+      "sandbox": [],
+      "calculation": [],
+      "expected_sources": [
+        [
+          "emergency_rulebook",
+          2
+        ],
+        [
+          "emergency_rulebook",
+          6
+        ]
+      ],
+      "source_hit": false,
+      "retrieved": [
+        [
+          "emergency_rulebook",
+          41
+        ],
+        [
+          "emergency_rulebook",
+          18
+        ],
+        [
+          "emergency_rulebook",
+          35
+        ]
+      ],
+      "expected_retrieved": false
+    },
+    {
+      "id": "C12",
+      "question": "What should the first aid box carried for road transport emergencies contain?",
+      "expected_category": "content",
+      "routed_category": "content",
+      "seconds": 26.5,
+      "error": null,
+      "status": "abstained",
+      "answer": "Response withheld: The drafting model was unable to provide citations that could be verbatim verified against source passages (Attempt 3 verification failed: Citation 1 quote 'Complete details of treatment for handling emergen...' was NOT found verbatim in doc_id='emergency_rulebook' page 36.. Note: The ONLY readable passages in context are [doc_id='emergency_rulebook' page 16, doc_id='emergency_rulebook' page 36, doc_id='emergency_rulebook' page 46]. Ensure all quotes are exact verbatim substrings and page numbers match these exactly.).",
+      "citations": [],
+      "effective_tier": "public",
+      "draft_attempts": 3,
+      "verification": [
+        "pass",
+        "fail",
+        "fail"
+      ],
+      "verification_fail_reasons": [
+        "Citation 1 quote 'Complete details of treatment for handling emergen...' was NOT found verbatim in doc_id='emergency_rulebook' page 36.",
+        "Citation 1 quote 'Complete details of treatment for handling emergen...' was NOT found verbatim in doc_id='emergency_rulebook' page 36."
+      ],
+      "grounding": [
+        {
+          "status": "fail",
+          "checked": 1,
+          "removed": null
+        }
+      ],
+      "code_attempts": 0,
+      "sandbox": [],
+      "calculation": [],
+      "expected_sources": [
+        [
+          "emergency_rulebook",
+          53
+        ],
+        [
+          "emergency_rulebook",
+          54
+        ]
+      ],
+      "source_hit": false,
+      "retrieved": [
+        [
+          "emergency_rulebook",
+          16
+        ],
+        [
+          "emergency_rulebook",
+          36
+        ],
+        [
+          "emergency_rulebook",
+          46
+        ]
+      ],
+      "expected_retrieved": false
+    },
+    {
+      "id": "C13",
+      "question": "Where must personnel assemble during a toxic gas release at CDU-2?",
+      "expected_category": "content",
+      "routed_category": "content",
+      "seconds": 13.3,
+      "error": null,
+      "status": "answered",
+      "answer": "Personnel must immediately assemble at Primary Assembly Point Bravo during a toxic gas release at CDU-2.",
+      "citations": [
+        [
+          "mrpl-hse-sop-101",
+          1
+        ]
+      ],
+      "effective_tier": "confidential",
+      "draft_attempts": 1,
+      "verification": [
+        "pass"
+      ],
+      "verification_fail_reasons": [],
+      "grounding": [
+        {
+          "status": "pass",
+          "checked": 1,
+          "removed": null
+        }
+      ],
+      "code_attempts": 0,
+      "sandbox": [],
+      "calculation": [],
+      "expected_sources": [
+        [
+          "mrpl-hse-sop-101",
+          1
+        ]
+      ],
+      "source_hit": true,
+      "retrieved": [
+        [
+          "mrpl-hse-sop-101",
+          1
+        ],
+        [
+          "emergency_rulebook",
+          28
+        ],
+        [
+          "emergency_rulebook",
+          22
+        ]
+      ],
+      "expected_retrieved": true
+    },
+    {
+      "id": "C14",
+      "question": "What minimum water flow rate must deluge systems on crude distillation heaters maintain?",
+      "expected_category": "content",
+      "routed_category": "content",
+      "seconds": 10.1,
+      "error": null,
+      "status": "answered",
+      "answer": "Fixed deluge systems covering crude distillation heaters must maintain a minimum water flow rate of 2500 liters per minute until hydrocarbon isolation is confirmed by the shift superintendent.",
+      "citations": [
+        [
+          "mrpl-hse-sop-101",
+          2
+        ]
+      ],
+      "effective_tier": "confidential",
+      "draft_attempts": 1,
+      "verification": [
+        "pass"
+      ],
+      "verification_fail_reasons": [],
+      "grounding": [
+        {
+          "status": "pass",
+          "checked": 1,
+          "removed": null
+        }
+      ],
+      "code_attempts": 0,
+      "sandbox": [],
+      "calculation": [],
+      "expected_sources": [
+        [
+          "mrpl-hse-sop-101",
+          2
+        ]
+      ],
+      "source_hit": true,
+      "retrieved": [
+        [
+          "mrpl-hse-sop-101",
+          2
+        ],
+        [
+          "emergency_rulebook",
+          25
+        ],
+        [
+          "emergency_rulebook",
+          51
+        ]
+      ],
+      "expected_retrieved": true
+    },
+    {
+      "id": "C15",
+      "question": "What did the vigilance inquiry find about the heat exchanger maintenance bids?",
+      "expected_category": "content",
+      "routed_category": "content",
+      "seconds": 9.7,
+      "error": null,
+      "status": "answered",
+      "answer": "The vigilance inquiry identified that three contract bids for heat exchanger maintenance originated from identical IP addresses, suggesting potential collusion or irregular qualification processes.",
+      "citations": [
+        [
+          "mrpl-vig-proc-2025",
+          1
+        ]
+      ],
+      "effective_tier": "confidential",
+      "draft_attempts": 1,
+      "verification": [
+        "pass"
+      ],
+      "verification_fail_reasons": [],
+      "grounding": [
+        {
+          "status": "pass",
+          "checked": 1,
+          "removed": null
+        }
+      ],
+      "code_attempts": 0,
+      "sandbox": [],
+      "calculation": [],
+      "expected_sources": [
+        [
+          "mrpl-vig-proc-2025",
+          1
+        ]
+      ],
+      "source_hit": true,
+      "retrieved": [
+        [
+          "mrpl-vig-proc-2025",
+          1
+        ],
+        [
+          "emergency_rulebook",
+          49
+        ],
+        [
+          "emergency_rulebook",
+          67
+        ]
+      ],
+      "expected_retrieved": true
+    },
+    {
+      "id": "C16",
+      "question": "What does Section 10 of the RTI Act allow regarding severability?",
+      "expected_category": "content",
+      "routed_category": "content",
+      "seconds": 9.0,
+      "error": null,
+      "status": "answered",
+      "answer": "Section 10 of the RTI Act 2005 permits access to non-exempt portions of records after severing any confidential or exempted commercial intelligence.",
+      "citations": [
+        [
+          "mrpl-rti-manual-sec4",
+          2
+        ]
+      ],
+      "effective_tier": "internal",
+      "draft_attempts": 1,
+      "verification": [
+        "pass"
+      ],
+      "verification_fail_reasons": [],
+      "grounding": [
+        {
+          "status": "pass",
+          "checked": 1,
+          "removed": null
+        }
+      ],
+      "code_attempts": 0,
+      "sandbox": [],
+      "calculation": [],
+      "expected_sources": [
+        [
+          "mrpl-rti-manual-sec4",
+          2
+        ]
+      ],
+      "source_hit": true,
+      "retrieved": [
+        [
+          "mrpl-rti-manual-sec4",
+          2
+        ],
+        [
+          "mrpl-rti-manual-sec4",
+          1
+        ],
+        [
+          "emergency_rulebook",
+          9
+        ]
+      ],
+      "expected_retrieved": true
+    },
+    {
+      "id": "O1",
+      "question": "What was MRPL's net profit in financial year 2023-24?",
+      "expected_category": "content",
+      "routed_category": "content",
+      "seconds": 24.3,
+      "error": null,
+      "status": "answered",
+      "answer": "The MRPL Vigilance Investigation Report Q2 2025 mentions vendor qualification anomalies, but does not provide financial information.\n\n*3 statements were removed because they could not be matched to the source passages.*",
+      "citations": [
+        [
+          "mrpl-rti-manual-sec4",
+          1
+        ],
+        [
+          "mrpl-rti-manual-sec4",
+          1
+        ]
+      ],
+      "effective_tier": "confidential",
+      "draft_attempts": 1,
+      "verification": [
+        "pass"
+      ],
+      "verification_fail_reasons": [],
+      "grounding": [
+        {
+          "status": "trimmed",
+          "checked": 4,
+          "removed": 3
+        }
+      ],
+      "code_attempts": 0,
+      "sandbox": [],
+      "calculation": []
+    },
+    {
+      "id": "O2",
+      "question": "Who won the cricket world cup in 2011?",
+      "expected_category": "other",
+      "routed_category": "content",
+      "seconds": 6.5,
+      "error": null,
+      "status": "abstained",
+      "answer": "No relevant documents found matching your query.",
+      "citations": [],
+      "effective_tier": "public",
+      "draft_attempts": 0,
+      "verification": [],
+      "verification_fail_reasons": [],
+      "grounding": [],
+      "code_attempts": 0,
+      "sandbox": [],
+      "calculation": []
+    },
+    {
+      "id": "K1",
+      "question": "convert 250 bar to psi",
+      "expected_category": "calculation",
+      "routed_category": "calculation",
+      "seconds": 2.9,
+      "error": null,
+      "status": "answered",
+      "answer": "**250 bar = 3625.943443 psi**\n\n*Computed by the local calculator/unit-conversion tool (a deterministic function call, not model arithmetic).*",
+      "citations": [],
+      "effective_tier": "public",
+      "draft_attempts": 0,
+      "verification": [],
+      "verification_fail_reasons": [],
+      "grounding": [],
+      "code_attempts": 0,
+      "sandbox": [],
+      "calculation": [
+        {
+          "status": "done",
+          "tool": "unit_converter",
+          "reason": null
+        }
+      ],
+      "expected_value": "3625.9",
+      "value_correct": true
+    },
+    {
+      "id": "K2",
+      "question": "what is 2500 * 4.5 + 120",
+      "expected_category": "calculation",
+      "routed_category": "calculation",
+      "seconds": 1.6,
+      "error": null,
+      "status": "answered",
+      "answer": "**2500 * 4.5 + 120 = 11370**\n\n*Computed by the local calculator/unit-conversion tool (a deterministic function call, not model arithmetic).*",
+      "citations": [],
+      "effective_tier": "public",
+      "draft_attempts": 0,
+      "verification": [],
+      "verification_fail_reasons": [],
+      "grounding": [],
+      "code_attempts": 0,
+      "sandbox": [],
+      "calculation": [
+        {
+          "status": "done",
+          "tool": "calculator",
+          "reason": null
+        }
+      ],
+      "expected_value": "11370",
+      "value_correct": true
+    },
+    {
+      "id": "K3",
+      "question": "how many barrels is 12000 liters",
+      "expected_category": "calculation",
+      "routed_category": "calculation",
+      "seconds": 1.7,
+      "error": null,
+      "status": "answered",
+      "answer": "**12000 l = 75.477729 bbl**\n\n*Computed by the local calculator/unit-conversion tool (a deterministic function call, not model arithmetic).*",
+      "citations": [],
+      "effective_tier": "public",
+      "draft_attempts": 0,
+      "verification": [],
+      "verification_fail_reasons": [],
+      "grounding": [],
+      "code_attempts": 0,
+      "sandbox": [],
+      "calculation": [
+        {
+          "status": "done",
+          "tool": "unit_converter",
+          "reason": null
+        }
+      ],
+      "expected_value": "75.4",
+      "value_correct": true
+    },
+    {
+      "id": "K4",
+      "question": "convert 45 degrees celsius to fahrenheit",
+      "expected_category": "calculation",
+      "routed_category": "calculation",
+      "seconds": 1.7,
+      "error": null,
+      "status": "answered",
+      "answer": "**45 c = 113 f**\n\n*Computed by the local calculator/unit-conversion tool (a deterministic function call, not model arithmetic).*",
+      "citations": [],
+      "effective_tier": "public",
+      "draft_attempts": 0,
+      "verification": [],
+      "verification_fail_reasons": [],
+      "grounding": [],
+      "code_attempts": 0,
+      "sandbox": [],
+      "calculation": [
+        {
+          "status": "done",
+          "tool": "unit_converter",
+          "reason": null
+        }
+      ],
+      "expected_value": "113",
+      "value_correct": true
+    },
+    {
+      "id": "P1",
+      "question": "write python code that prints the first 10 fibonacci numbers",
+      "expected_category": "code",
+      "routed_category": "code",
+      "seconds": 8.7,
+      "error": null,
+      "status": "answered",
+      "answer": "```python\n# Initialize the first two Fibonacci numbers\na, b = 0, 1\n\n# Loop to print the first 10 Fibonacci numbers\nfor _ in range(10):\n    print(a)\n    # Update the values of a and b\n    a, b = b, a + b\n```\n\nThis code initializes the first two Fibonacci numbers, `a` and `b`, to 0 and 1, respectively. It then uses a loop to print the first 10 numbers in the sequence. In each iteration, it prints the current value of `a`, updates `a` to the value of `b`, and updates `b` to the sum of the old `a` and `b`. This process repeats until the loop has printed 10 numbers.\n\n## Sandbox Execution \u2014 Passed (attempt 1 of 3)\n\n```\n0\n1\n1\n2\n3\n5\n8\n13\n21\n34\n\n```",
+      "citations": [],
+      "effective_tier": "public",
+      "draft_attempts": 0,
+      "verification": [],
+      "verification_fail_reasons": [],
+      "grounding": [],
+      "code_attempts": 1,
+      "sandbox": [
+        "pass"
+      ],
+      "calculation": []
+    },
+    {
+      "id": "P2",
+      "question": "write python code that checks whether the string 'level' is a palindrome and prints the result",
+      "expected_category": "code",
+      "routed_category": "code",
+      "seconds": 12.0,
+      "error": null,
+      "status": "answered",
+      "answer": "```python\n# Define the string to check\nstring = 'level'\n\n# Check if the string is equal to its reverse\nis_palindrome = string == string[::-1]\n\n# Print the result\nprint(is_palindrome)\n```\n\nThis code defines the string `'level'`, checks if it is equal to its reverse (achieved using slicing `string[::-1]`), and prints the result. The output will be `True` because `'level'` is a palindrome.\n\n## Sandbox Execution \u2014 Passed (attempt 1 of 3)\n\n```\nTrue\n\n```",
+      "citations": [],
+      "effective_tier": "public",
+      "draft_attempts": 0,
+      "verification": [],
+      "verification_fail_reasons": [],
+      "grounding": [],
+      "code_attempts": 1,
+      "sandbox": [
+        "pass"
+      ],
+      "calculation": []
+    },
+    {
+      "id": "P3",
+      "question": "write python code that computes the factorial of 10 and prints it",
+      "expected_category": "code",
+      "routed_category": "code",
+      "seconds": 11.0,
+      "error": null,
+      "status": "answered",
+      "answer": "```python\n# Calculate the factorial of 10\nfactorial = 1\nfor i in range(1, 11):\n    factorial *= i\n\n# Print the result\nprint(factorial)\n```\n\nThis code calculates the factorial of 10 by multiplying all integers from 1 to 10. The result is then printed to the console.\n\n## Sandbox Execution \u2014 Passed (attempt 1 of 3)\n\n```\n3628800\n\n```",
+      "citations": [],
+      "effective_tier": "public",
+      "draft_attempts": 0,
+      "verification": [],
+      "verification_fail_reasons": [],
+      "grounding": [],
+      "code_attempts": 1,
+      "sandbox": [
+        "pass"
+      ],
+      "calculation": []
+    },
+    {
+      "id": "P4",
+      "question": "write python code that counts the vowels in the sentence 'emergency response plan' and prints the count",
+      "expected_category": "code",
+      "routed_category": "code",
+      "seconds": 11.7,
+      "error": null,
+      "status": "answered",
+      "answer": "```python\nsentence = 'emergency response plan'\nvowels = 'aeiouAEIOU'\ncount = sum(1 for char in sentence if char in vowels)\nprint(count)\n```\n\nThis code counts the number of vowels in the given sentence by iterating over each character in the sentence and checking if it is a vowel (either uppercase or lowercase). The `sum` function is used to count the number of `True` values returned by the generator expression, which corresponds to the number of vowels in the sentence.\n\n## Sandbox Execution \u2014 Passed (attempt 1 of 3)\n\n```\n7\n\n```",
+      "citations": [],
+      "effective_tier": "public",
+      "draft_attempts": 0,
+      "verification": [],
+      "verification_fail_reasons": [],
+      "grounding": [],
+      "code_attempts": 1,
+      "sandbox": [
+        "pass"
+      ],
+      "calculation": []
+    },
+    {
+      "id": "Q1",
+      "question": "what can you do?",
+      "expected_category": "capability",
+      "routed_category": "capability",
+      "seconds": 11.1,
+      "error": null,
+      "status": "answered",
+      "answer": "I can answer questions specifically about MRPL's internal documents, such as the MRPL Health, Safety & Environment: Refinery Emergency Response Manual, MRPL Vigilance Investigation: Annual Procurement Audit Findings Q2 2025, MRPL Right to Information Act 2005: Section 4 Proactive Disclosures Manual, and the Emergency Rulebook. Every content claim I make must be verifiable from one of these documents.",
+      "citations": [],
+      "effective_tier": "public",
+      "draft_attempts": 0,
+      "verification": [],
+      "verification_fail_reasons": [],
+      "grounding": [],
+      "code_attempts": 0,
+      "sandbox": [],
+      "calculation": []
+    },
+    {
+      "id": "Q2",
+      "question": "which documents can I access?",
+      "expected_category": "capability",
+      "routed_category": "capability",
+      "seconds": 5.5,
+      "error": null,
+      "status": "answered",
+      "answer": "Based on the readable documents for this caller, you can access: MRPL Health, Safety & Environment: Refinery Emergency Response Manual (`mrpl-hse-sop-101`, confidential), MRPL Vigilance Investigation: Annual Procurement Audit Findings Q2 2025 (`mrpl-vig-proc-2025`, confidential), MRPL Right to Information Act 2005: Section 4 Proactive Disclosures Manual (`mrpl-rti-manual-sec4`, public), and Emergency Rulebook (`emergency_rulebook`, internal).",
+      "citations": [],
+      "effective_tier": "public",
+      "draft_attempts": 0,
+      "verification": [],
+      "verification_fail_reasons": [],
+      "grounding": [],
+      "code_attempts": 0,
+      "sandbox": [],
+      "calculation": []
+    }
+  ],
+  "network_stats": {
+    "total": 100,
+    "allowed": 99,
+    "blocked": 1,
+    "active_host": "http://localhost:11434",
+    "uptime_seconds": 0.0
+  },
+  "network_by_label": {
+    "('sovereignty-test-probe', 'example.com:443', 'blocked')": 1,
+    "('capability-answer', 'localhost:11434', 'allowed')": 2,
+    "('intent-classification', 'localhost:11434', 'allowed')": 28,
+    "('ollama-health-check', 'localhost:11434', 'allowed')": 28,
+    "('code-generation', 'localhost:11434', 'allowed')": 4,
+    "('tool-call-extraction', 'localhost:11434', 'allowed')": 4,
+    "('citation-repair', 'localhost:11434', 'allowed')": 8,
+    "('document-drafting', 'localhost:11434', 'allowed')": 25
+  },
+  "probe_blocked": true,
+  "ledger_intact": true,
+  "ledger_broken_at": null,
+  "models": {
+    "draft": "granite4.1:3b",
+    "fallback": "llama3.2:latest",
+    "code": "qwen2.5-coder:3b",
+    "vision": "granite3.2-vision"
+  }
+}

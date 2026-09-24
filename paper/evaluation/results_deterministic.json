@@ -1,0 +1,175 @@
+{
+  "corpus_passages": 82,
+  "corpus_chars": 137650,
+  "verifier": {
+    "adversarial": {
+      "genuine": {
+        "n": 810,
+        "accepted": 810
+      },
+      "word_substitution": {
+        "n": 809,
+        "accepted": 0
+      },
+      "word_deletion": {
+        "n": 774,
+        "accepted": 8
+      },
+      "adjacent_swap": {
+        "n": 774,
+        "accepted": 23
+      },
+      "number_change": {
+        "n": 399,
+        "accepted": 43
+      },
+      "negation_insertion": {
+        "n": 272,
+        "accepted": 0
+      },
+      "wrong_page": {
+        "n": 810,
+        "accepted": 2
+      },
+      "wrong_document": {
+        "n": 810,
+        "accepted": 0
+      },
+      "fabricated_shuffle": {
+        "n": 810,
+        "accepted": 0
+      }
+    },
+    "cosmetic": {
+      "whitespace_linebreaks": {
+        "n": 810,
+        "accepted": 810,
+        "exact_only_accepted": 0
+      },
+      "lowercased": {
+        "n": 640,
+        "accepted": 640,
+        "exact_only_accepted": 0
+      },
+      "typographic_quotes_dashes": {
+        "n": 169,
+        "accepted": 169,
+        "exact_only_accepted": 0
+      },
+      "footnote_marker_removed": {
+        "n": 54,
+        "accepted": 54,
+        "exact_only_accepted": 0
+      }
+    }
+  },
+  "access_gate": {
+    "grades": 25,
+    "compartment_subsets": 32,
+    "pairs_checked": 102400,
+    "mismatches_vs_reference": 0,
+    "rank_sufficient_but_compartment_denied": 49984,
+    "schema_rejects_unknown_grade": true,
+    "unknown_grade_gate_results_per_tier": [
+      false,
+      false,
+      false,
+      false
+    ],
+    "non_principal_gate_result": false,
+    "inversion": {
+      "GM_F_commercial_reads_vigilance_doc": false,
+      "AM_A_vigilance_reads_vigilance_doc": true
+    },
+    "retrieval_calls": 3072,
+    "passages_returned": 8064,
+    "denials_recorded": 2624,
+    "leaks": 0
+  },
+  "ledger": {
+    "rows": 500,
+    "baseline_intact": true,
+    "verify_ms_500_rows": 2.96,
+    "naive_edit": {
+      "trials": 100,
+      "detected": 100,
+      "localised": 100
+    },
+    "edit_with_hash_recompute": {
+      "trials": 100,
+      "detected": 100,
+      "localised_next_row": 100
+    },
+    "last_row_rewrite": {
+      "trials": 1,
+      "detected": 0
+    }
+  },
+  "sandbox": {
+    "normal_program": {
+      "success": true,
+      "timed_out": false,
+      "reached": false,
+      "file_exists_after": null,
+      "stdout": "45\n",
+      "stderr_tail": "",
+      "enforcement": "os",
+      "network_attempts": [],
+      "seconds": 0.05
+    },
+    "infinite_loop": {
+      "success": false,
+      "timed_out": true,
+      "reached": false,
+      "file_exists_after": null,
+      "stdout": "",
+      "stderr_tail": "\n[Killed: exceeded 5s sandbox timeout.]",
+      "enforcement": "os",
+      "network_attempts": [],
+      "seconds": 5.01
+    },
+    "network_urllib": {
+      "success": false,
+      "timed_out": false,
+      "reached": false,
+      "file_exists_after": null,
+      "stdout": "",
+      "stderr_tail": "omebrew/Cellar/python@3.12/3.12.14/Framew\n[Network access blocked by the OS sandbox: the code tried to reach example.com:80; the kernel refused the connection.]",
+      "enforcement": "os",
+      "network_attempts": [
+        {
+          "host": "example.com",
+          "port": 80
+        }
+      ],
+      "seconds": 0.2
+    },
+    "network_raw_socket": {
+      "success": false,
+      "timed_out": false,
+      "reached": false,
+      "file_exists_after": null,
+      "stdout": "",
+      "stderr_tail": "ror: [Errno 1] Operation not permitted\n\n[Network access blocked by the OS sandbox: the code tried to reach 93.184.216.34:80; the kernel refused the connection.]",
+      "enforcement": "os",
+      "network_attempts": [
+        {
+          "host": "93.184.216.34",
+          "port": 80
+        }
+      ],
+      "seconds": 0.05
+    },
+    "write_outside_workdir": {
+      "success": false,
+      "timed_out": false,
+      "reached": false,
+      "file_exists_after": false,
+      "stdout": "",
+      "stderr_tail": ".write('x')\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nPermissionError: [Errno 1] Operation not permitted: '/tmp/severance_sandbox_escape_test.txt'\n",
+      "enforcement": "os",
+      "network_attempts": [],
+      "seconds": 0.04
+    }
+  }
+}
