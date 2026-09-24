@@ -111,6 +111,25 @@
   @keyframes severance-row-in-blocked { from { background-color: rgb(var(--color-clearance-secret) / 0.55); } to { background-color: rgb(var(--color-clearance-secret) / 0.12); } }
   .net-row-new-allowed { animation: severance-row-in-allowed 1.6s ease-out; }
   .net-row-new-blocked { animation: severance-row-in-blocked 2.4s ease-out forwards; }
+  /* Live air-gap map (Sovereignty Monitor). Colours come from theme tokens so
+     it follows light/dark mode. */
+  #airgapMap text { font-family: Inter, Arial, sans-serif; text-anchor: middle; }
+  #airgapMap .am-boundary { fill: rgb(var(--color-compartment-commercial) / 0.05); stroke: rgb(var(--color-compartment-commercial)); stroke-width: 2.5; stroke-dasharray: 10 7; }
+  #airgapMap .am-boundary-label { fill: rgb(var(--color-compartment-commercial)); font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-anchor: start; }
+  #airgapMap .am-link { stroke: rgb(var(--color-border-strong)); stroke-width: 2.5; }
+  #airgapMap .am-link-ok { stroke: rgb(var(--color-compartment-hse) / 0.55); }
+  #airgapMap .am-link-blocked { stroke: rgb(var(--color-clearance-secret) / 0.35); stroke-dasharray: 5 6; }
+  #airgapMap .am-wall line { stroke: rgb(var(--color-clearance-secret)); stroke-width: 5; stroke-linecap: round; }
+  #airgapMap .am-node rect { fill: rgb(var(--color-surface-container)); stroke: rgb(var(--color-border-strong)); stroke-width: 1.5; transition: stroke 0.3s, fill 0.3s; }
+  #airgapMap .am-node-main rect { stroke: rgb(var(--color-primary)); stroke-width: 2.5; }
+  #airgapMap .am-title { fill: rgb(var(--color-text-primary)); font-size: 16px; font-weight: 700; }
+  #airgapMap .am-sub { fill: rgb(var(--color-text-secondary)); font-size: 12.5px; }
+  #airgapMap .am-cloud circle, #airgapMap .am-cloud rect { fill: rgb(var(--color-surface-container-high)); }
+  #airgapMap .am-node.am-hit-ok rect { stroke: rgb(var(--color-compartment-hse)); fill: rgb(var(--color-compartment-hse) / 0.18); }
+  #airgapMap .am-dot-ok { fill: rgb(var(--color-compartment-hse)); }
+  #airgapMap .am-dot-blocked { fill: rgb(var(--color-clearance-secret)); }
+  #airgapMap .am-burst { fill: none; stroke: rgb(var(--color-clearance-secret)); stroke-width: 3; }
+  #airgapMap .am-blocked-text { fill: rgb(var(--color-clearance-secret)); font-size: 13px; font-weight: 800; letter-spacing: 0.06em; }
   /* Blinking caret at the end of text a model is writing right now. */
   @keyframes severance-caret { 50% { opacity: 0; } }
   .live-caret { display: inline-block; width: 0.5em; height: 1.05em; margin-left: 2px; vertical-align: text-bottom; background: rgb(var(--color-primary)); animation: severance-caret 1s steps(1) infinite; }
@@ -336,6 +355,38 @@ tailwind.config = { theme: { extend: {
 </div>
 <span class="font-label-sm text-label-sm px-2.5 py-1 rounded-full bg-surface-container text-compartment-hse font-medium">Verified Isolated</span>
 </div>
+</div>
+
+<!-- Live air-gap map: every dot is a real row from the network log. -->
+<div class="bg-surface-raised rounded-xl p-space-md shadow-sm mb-space-lg">
+<div class="flex items-center justify-between gap-space-sm mb-space-xs">
+<div class="flex items-center gap-space-sm">
+<span class="w-2 h-2 rounded-full bg-compartment-hse animate-pulse"></span>
+<h2 class="font-title-md text-title-md text-text-primary">Live Air-Gap Map</h2>
+</div>
+<div class="flex items-center gap-space-md font-label-sm text-label-sm text-text-secondary">
+<span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-compartment-hse"></span>Allowed (local)</span>
+<span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-clearance-secret"></span>Blocked at the air-gap</span>
+</div>
+</div>
+<svg aria-label="Live map of network calls: local calls reach the models, external calls are stopped at the air-gap boundary" class="w-full h-auto" id="airgapMap" role="img" viewBox="0 0 960 300">
+<rect class="am-boundary" height="264" rx="14" width="704" x="18" y="18"></rect>
+<text class="am-boundary-label" x="36" y="44">ORGANISATION PREMISES · AIR-GAPPED</text>
+<line class="am-link" x1="160" x2="255" y1="160" y2="160"></line>
+<line class="am-link am-link-ok" x1="405" x2="505" y1="160" y2="95"></line>
+<line class="am-link" x1="405" x2="505" y1="160" y2="225"></line>
+<line class="am-link am-link-blocked" x1="405" x2="720" y1="160" y2="160"></line>
+<line class="am-link am-link-blocked" x1="675" x2="720" y1="225" y2="200"></line>
+<line class="am-link am-link-blocked am-outside" x1="720" x2="818" y1="160" y2="160"></line>
+<g class="am-wall"><line x1="722" x2="722" y1="120" y2="240"></line></g>
+<g class="am-node" id="amEmployee"><rect height="58" rx="10" width="120" x="40" y="131"></rect><text class="am-title" x="100" y="157">Employee</text><text class="am-sub" x="100" y="176">browser</text></g>
+<g class="am-node am-node-main" id="amServer"><rect height="76" rx="12" width="150" x="255" y="122"></rect><text class="am-title" x="330" y="153">SEVERANCE</text><text class="am-sub" x="330" y="173">server + network guard</text></g>
+<g class="am-node" id="amModels"><rect height="58" rx="10" width="170" x="505" y="66"></rect><text class="am-title" x="590" y="91">Local AI models</text><text class="am-sub" x="590" y="110">Ollama · 127.0.0.1</text></g>
+<g class="am-node" id="amSandbox"><rect height="58" rx="10" width="170" x="505" y="196"></rect><text class="am-title" x="590" y="221">Code sandbox</text><text class="am-sub" x="590" y="240">no network</text></g>
+<g class="am-cloud" id="amInternet"><circle cx="848" cy="166" r="24"></circle><circle cx="880" cy="150" r="32"></circle><circle cx="912" cy="168" r="22"></circle><rect height="30" rx="15" width="112" x="824" y="162"></rect><text class="am-title" x="878" y="222">Internet</text><text class="am-sub" x="878" y="240">cloud AI</text></g>
+<g id="amDots"></g>
+</svg>
+<p class="font-body-sm text-body-sm text-text-tertiary mt-space-xs" id="airgapCaption">Waiting for network activity… ask a question or press “Test External Block”.</p>
 </div>
 
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-space-sm mb-space-lg">
@@ -575,7 +626,12 @@ function switchView(view) {
     else loadDocuments(true);
   }
   if (view === "ledger" && !ledgerLoaded) loadLedger();
-  if (view === "network") loadNetworkMonitor();
+  if (view === "network") {
+    loadNetworkMonitor();
+    startAirgapMap();
+  } else {
+    stopAirgapMap();
+  }
   if (view !== "workbench" && !document.getElementById("netDock").classList.contains("hidden")) setNetDockOpen(false);
 }
 
@@ -2035,6 +2091,145 @@ document.getElementById("netProbeBtn").addEventListener("click", async () => {
     loadNetworkMonitor();
   }
 });
+
+/* ---- Live air-gap map (Sovereignty Monitor) ----
+ * Polls the real network log while this panel is open and animates each NEW
+ * row: allowed calls travel from the server to the local models; blocked ones
+ * fly toward the internet and are stopped at the air-gap boundary. Existing
+ * history is never replayed, so every animation is a call that just happened. */
+const AIRGAP_POLL_MS = 1500;
+const AIRGAP_MAX_QUEUE = 10;
+const SVG_NS = "http://www.w3.org/2000/svg";
+const AM_POINTS = {
+  server: [405, 160], models: [505, 95], sandbox: [675, 225],
+  wallFromServer: [720, 160], wallFromSandbox: [720, 200],
+};
+let airgapSession = 0;
+let airgapTimer = null;
+let airgapLastId = null;
+let airgapQueue = [];
+let airgapPlaying = null;
+
+const prefersReducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/** Settles when the animation ends OR after its duration -- browsers pause
+ * animations in hidden tabs, and the map must not pile up stuck elements. */
+function airgapAnimationDone(anim, ms) {
+  return Promise.race([anim.finished.catch(() => {}), new Promise(r => setTimeout(r, ms + 150))]);
+}
+
+function startAirgapMap() {
+  stopAirgapMap();
+  airgapLastId = null;
+  pollAirgap(airgapSession);
+}
+
+function stopAirgapMap() {
+  airgapSession += 1;
+  clearTimeout(airgapTimer);
+  airgapTimer = null;
+  airgapQueue = [];
+}
+
+async function pollAirgap(session) {
+  try {
+    const res = await fetchAPI("/network/events?limit=30");
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const events = await res.json();
+    if (session !== airgapSession) return;
+    if (airgapLastId === null) {
+      airgapLastId = events.length ? events[0].id : 0; // baseline: don't replay history
+    } else {
+      const fresh = events.filter(e => e.id > airgapLastId).sort((a, b) => a.id - b.id);
+      if (fresh.length) {
+        airgapLastId = fresh[fresh.length - 1].id;
+        airgapQueue = airgapQueue.concat(fresh).slice(-AIRGAP_MAX_QUEUE);
+        playAirgapQueue(session);
+        loadNetworkMonitor(); // keep the counters and table in step with the map
+      }
+    }
+  } catch (_) {
+    // A missed poll just means a later one catches up; the map stays usable.
+  } finally {
+    if (session === airgapSession) airgapTimer = setTimeout(() => pollAirgap(session), AIRGAP_POLL_MS);
+  }
+}
+
+async function playAirgapQueue(session) {
+  if (airgapPlaying === session) return;
+  airgapPlaying = session;
+  while (airgapQueue.length && session === airgapSession) {
+    animateAirgapEvent(airgapQueue.shift());
+    await new Promise(r => setTimeout(r, 350));
+  }
+  if (airgapPlaying === session) airgapPlaying = null;
+}
+
+function animateAirgapEvent(e) {
+  const caption = document.getElementById("airgapCaption");
+  const where = `${escapeHtml(e.host)}:${e.port}`;
+  if (e.allowed) {
+    caption.innerHTML = `<span class="text-compartment-hse font-medium">✓ ${escapeHtml(e.process_label)}</span> → ${where} · allowed, stays on this machine`;
+    moveAirgapDot(AM_POINTS.server, AM_POINTS.models, "am-dot-ok", 700).then(() => flashAirgapNode("amModels"));
+    return;
+  }
+  const fromSandbox = e.process_label === "code-sandbox";
+  const start = fromSandbox ? AM_POINTS.sandbox : AM_POINTS.server;
+  const wall = fromSandbox ? AM_POINTS.wallFromSandbox : AM_POINTS.wallFromServer;
+  caption.innerHTML = `<span class="text-clearance-secret font-medium">✕ ${escapeHtml(e.process_label)}</span> → ${where} · blocked at the air-gap`;
+  moveAirgapDot(start, wall, "am-dot-blocked", 650).then(() => burstAirgap(wall));
+}
+
+function moveAirgapDot([x1, y1], [x2, y2], cls, ms) {
+  const layer = document.getElementById("amDots");
+  if (!layer) return Promise.resolve();
+  if (prefersReducedMotion()) return Promise.resolve();
+  const dot = document.createElementNS(SVG_NS, "circle");
+  dot.setAttribute("cx", x1);
+  dot.setAttribute("cy", y1);
+  dot.setAttribute("r", 7);
+  dot.setAttribute("class", cls);
+  layer.appendChild(dot);
+  const anim = dot.animate(
+    [{ transform: "translate(0px, 0px)" }, { transform: `translate(${x2 - x1}px, ${y2 - y1}px)` }],
+    { duration: ms, easing: "ease-in-out", fill: "forwards" },
+  );
+  return airgapAnimationDone(anim, ms).then(() => dot.remove());
+}
+
+function flashAirgapNode(id) {
+  const node = document.getElementById(id);
+  if (!node) return;
+  node.classList.add("am-hit-ok");
+  setTimeout(() => node.classList.remove("am-hit-ok"), 600);
+}
+
+function burstAirgap([x, y]) {
+  const layer = document.getElementById("amDots");
+  if (!layer) return;
+  const label = document.createElementNS(SVG_NS, "text");
+  label.setAttribute("x", x);
+  label.setAttribute("y", y - 18);
+  label.setAttribute("class", "am-blocked-text");
+  label.textContent = "BLOCKED";
+  layer.appendChild(label);
+  if (prefersReducedMotion()) {
+    setTimeout(() => label.remove(), 1200);
+    return;
+  }
+  const ring = document.createElementNS(SVG_NS, "circle");
+  ring.setAttribute("cx", x);
+  ring.setAttribute("cy", y);
+  ring.setAttribute("r", 8);
+  ring.setAttribute("class", "am-burst");
+  ring.style.transformBox = "fill-box";
+  ring.style.transformOrigin = "center";
+  layer.appendChild(ring);
+  const ringAnim = ring.animate([{ transform: "scale(1)", opacity: 1 }, { transform: "scale(3.5)", opacity: 0 }], { duration: 700, easing: "ease-out" });
+  airgapAnimationDone(ringAnim, 700).then(() => ring.remove());
+  const labelAnim = label.animate([{ opacity: 1 }, { opacity: 1, offset: 0.7 }, { opacity: 0 }], { duration: 1400 });
+  airgapAnimationDone(labelAnim, 1400).then(() => label.remove());
+}
 
 /* ---- Live socket-stream overlay (Workbench) ---- */
 // Polls the same real network log once a second while open. Rows that
