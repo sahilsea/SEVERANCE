@@ -96,3 +96,36 @@ def test_runner_retries_then_abstains_when_nothing_is_grounded(tmp_path: Path):
     )
     assert response.status == "abstained"
     assert agent.calls == 3
+
+
+SAFETY = Passage(
+    doc_id="fire_sop",
+    page=3,
+    title="Fire SOP",
+    text=(
+        "Do not use water on oil fires. Stop the engine. Move the vehicle to an open area. "
+        "Call the fire brigade. Water must be used to cool the storage tank during a fire."
+    ),
+    label=Label(tier=Tier.INTERNAL, compartments=frozenset([Compartment.HSE])),
+)
+
+
+def test_derived_small_count_is_not_treated_as_invented():
+    s = "The SOP lists 3 immediate steps: stop the engine, move the vehicle, call the fire brigade."
+    assert grounding.check(s, [SAFETY]).unsupported == []
+
+
+def test_dropped_negation_flagged():
+    s2 = "Water should be used on oil fires to control them."
+    assert grounding.check(s2, [SAFETY]).unsupported == [s2]
+    assert grounding.check("Never use water on oil fires, per the SOP.", [SAFETY]).unsupported == []
+
+
+def test_added_negation_flagged():
+    s = "Water must not be used to cool the storage tank during a fire."
+    assert grounding.check(s, [SAFETY]).unsupported == [s]
+
+
+def test_prohibition_restating_a_negation_is_supported():
+    s = "Using water on oil fires is prohibited by the fire SOP."
+    assert grounding.check(s, [SAFETY]).unsupported == []
