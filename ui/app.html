@@ -115,7 +115,7 @@
   @keyframes severance-caret { 50% { opacity: 0; } }
   .live-caret { display: inline-block; width: 0.5em; height: 1.05em; margin-left: 2px; vertical-align: text-bottom; background: rgb(var(--color-primary)); animation: severance-caret 1s steps(1) infinite; }
 </style>
-<script src="/static/vendor/tailwindcss-play.js"></script>
+<script src="/static/vendor/tailwindcss-play-3.4.17.js"></script>
 <script id="tailwind-config">
 tailwind.config = { theme: { extend: {
   "colors": { "secondary": "rgb(var(--color-secondary) / <alpha-value>)", "on-primary-fixed-variant": "rgb(var(--color-on-primary-fixed-variant) / <alpha-value>)", "surface-container": "rgb(var(--color-surface-container) / <alpha-value>)", "clearance-internal": "rgb(var(--color-clearance-internal) / <alpha-value>)", "on-background": "rgb(var(--color-on-background) / <alpha-value>)", "background": "rgb(var(--color-background) / <alpha-value>)", "surface-canvas": "rgb(var(--color-surface-canvas) / <alpha-value>)", "inverse-on-surface": "rgb(var(--color-inverse-on-surface) / <alpha-value>)", "text-tertiary": "rgb(var(--color-text-tertiary) / <alpha-value>)", "surface-container-highest": "rgb(var(--color-surface-container-highest) / <alpha-value>)", "inverse-surface": "rgb(var(--color-inverse-surface) / <alpha-value>)", "compartment-commercial": "rgb(var(--color-compartment-commercial) / <alpha-value>)", "clearance-confidential": "rgb(var(--color-clearance-confidential) / <alpha-value>)", "surface-bright": "rgb(var(--color-surface-bright) / <alpha-value>)", "outline": "rgb(var(--color-outline) / <alpha-value>)", "primary-container": "rgb(var(--color-primary-container) / <alpha-value>)", "secondary-container": "rgb(var(--color-secondary-container) / <alpha-value>)", "surface-container-low": "rgb(var(--color-surface-container-low) / <alpha-value>)", "error": "rgb(var(--color-error) / <alpha-value>)", "surface-container-high": "rgb(var(--color-surface-container-high) / <alpha-value>)", "primary": "rgb(var(--color-primary) / <alpha-value>)", "compartment-legal": "rgb(var(--color-compartment-legal) / <alpha-value>)", "surface-raised": "rgb(var(--color-surface-raised) / <alpha-value>)", "clearance-public": "rgb(var(--color-clearance-public) / <alpha-value>)", "on-surface": "rgb(var(--color-on-surface) / <alpha-value>)", "text-primary": "rgb(var(--color-text-primary) / <alpha-value>)", "text-secondary": "rgb(var(--color-text-secondary) / <alpha-value>)", "surface-dim": "rgb(var(--color-surface-dim) / <alpha-value>)", "compartment-hse": "rgb(var(--color-compartment-hse) / <alpha-value>)", "on-error-container": "rgb(var(--color-on-error-container) / <alpha-value>)", "border-strong": "rgb(var(--color-border-strong) / <alpha-value>)", "surface-container-lowest": "rgb(var(--color-surface-container-lowest) / <alpha-value>)", "on-primary": "rgb(var(--color-on-primary) / <alpha-value>)", "compartment-technical": "rgb(var(--color-compartment-technical) / <alpha-value>)", "clearance-secret": "rgb(var(--color-clearance-secret) / <alpha-value>)", "surface-subtle": "rgb(var(--color-surface-subtle) / <alpha-value>)", "border-subtle": "rgb(var(--color-border-subtle) / <alpha-value>)", "surface": "rgb(var(--color-surface) / <alpha-value>)", "compartment-vigilance": "rgb(var(--color-compartment-vigilance) / <alpha-value>)" },
@@ -2042,6 +2042,7 @@ document.getElementById("netProbeBtn").addEventListener("click", async () => {
 // each question's calls appear as they happen.
 const NET_DOCK_POLL_MS = 1000;
 let netDockTimer = null;
+let netDockSession = 0; // bumped on every open/close, so late responses from a previous session are dropped
 let netDockLastSeenId = null; // null until the first fetch: existing rows don't flash
 
 function setNetDockOpen(open) {
@@ -2054,16 +2055,19 @@ function setNetDockOpen(open) {
   toggle.classList.toggle("text-compartment-hse", open);
   toggle.classList.toggle("text-text-secondary", !open);
   toggle.classList.toggle("border-compartment-hse", open);
-  clearInterval(netDockTimer);
+  clearTimeout(netDockTimer);
   netDockTimer = null;
+  netDockSession += 1;
   if (open) {
     netDockLastSeenId = null;
-    pollNetDock();
-    netDockTimer = setInterval(pollNetDock, NET_DOCK_POLL_MS);
+    pollNetDock(netDockSession);
   }
 }
 
-async function pollNetDock() {
+/** One poll at a time: the next is scheduled only after this one finishes,
+ * so a slow server can't pile up overlapping requests or let an older
+ * response overwrite a newer one. */
+async function pollNetDock(session) {
   try {
     const [statsRes, eventsRes] = await Promise.all([
       fetchAPI("/network/stats"),
@@ -2072,13 +2076,20 @@ async function pollNetDock() {
     if (!statsRes.ok || !eventsRes.ok) throw new Error(`HTTP ${statsRes.status}/${eventsRes.status}`);
     const stats = await statsRes.json();
     const events = await eventsRes.json();
+    if (session !== netDockSession) return;
     document.getElementById("netDockTotal").textContent = stats.total;
     document.getElementById("netDockAllowed").textContent = stats.allowed;
     document.getElementById("netDockBlocked").textContent = stats.blocked;
     renderNetDock(events);
     document.getElementById("netDockUpdated").textContent = `Live · updated ${new Date().toLocaleTimeString()}`;
   } catch (err) {
-    document.getElementById("netDockUpdated").textContent = "Connection to monitor lost — retrying…";
+    if (session === netDockSession) {
+      document.getElementById("netDockUpdated").textContent = "Connection to monitor lost — retrying…";
+    }
+  } finally {
+    if (session === netDockSession) {
+      netDockTimer = setTimeout(() => pollNetDock(session), NET_DOCK_POLL_MS);
+    }
   }
 }
 

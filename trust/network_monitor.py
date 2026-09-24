@@ -25,6 +25,8 @@ from __future__ import annotations
 
 import ipaddress
 import os
+import sqlite3
+import threading
 import time
 from typing import Optional
 from urllib.parse import urlparse
@@ -68,6 +70,25 @@ class ExternalConnectionBlocked(Exception):
 
 def _default_db_path() -> str:
     return os.getenv("SEVERANCE_DB_PATH", "severance.db")
+
+
+# Every model call records a row and the Live Socket Stream polls once a
+# second, so these paths must stay cheap: create the table once per database
+# per process, then use a plain connection (the ledger's get_db_connection
+# re-runs DDL and a commit on every open).
+_initialized_paths: set[str] = set()
+_init_lock = threading.Lock()
+
+
+def _connect(db_path: str) -> sqlite3.Connection:
+    if db_path not in _initialized_paths:
+        with _init_lock:
+            if db_path not in _initialized_paths:
+                init_network_log_table(db_path)
+                _initialized_paths.add(db_path)
+    conn = sqlite3.connect(db_path, timeout=10)
+    conn.row_factory = sqlite3.Row
+    return conn
 
 
 def init_network_log_table(db_path: str) -> None:
@@ -131,8 +152,7 @@ def record_blocked_attempt(process_label: str, host: str, port: int, db_path: Op
 
 
 def _record(db_path: str, process_label: str, host: str, port: int, allowed: bool) -> None:
-    init_network_log_table(db_path)
-    conn = get_db_connection(db_path)
+    conn = _connect(db_path)
     try:
         with conn:
             conn.execute(
@@ -145,8 +165,7 @@ def _record(db_path: str, process_label: str, host: str, port: int, allowed: boo
 
 def get_stats(db_path: Optional[str] = None) -> dict:
     db_path = db_path or _default_db_path()
-    init_network_log_table(db_path)
-    conn = get_db_connection(db_path)
+    conn = _connect(db_path)
     try:
         cursor = conn.cursor()
         cursor.execute("SELECT COUNT(*), COALESCE(SUM(allowed), 0) FROM network_log;")
@@ -164,8 +183,7 @@ def get_stats(db_path: Optional[str] = None) -> dict:
 
 def get_recent_events(db_path: Optional[str] = None, limit: int = 100, only_blocked: bool = False) -> list[dict]:
     db_path = db_path or _default_db_path()
-    init_network_log_table(db_path)
-    conn = get_db_connection(db_path)
+    conn = _connect(db_path)
     try:
         cursor = conn.cursor()
         query = "SELECT id, timestamp, process_label, host, port, allowed FROM network_log"

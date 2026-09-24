@@ -44,20 +44,45 @@ def _emit(emit: Optional[Callable[[dict], None]], event: dict) -> None:
 _JSON_ESCAPES = {'"': '"', "\\": "\\", "/": "/", "b": "\b", "f": "\f", "n": "\n", "r": "\r", "t": "\t"}
 
 
-def partial_json_string_field(raw: str, field: str) -> Optional[str]:
-    """Decode the value of string field `field` from a JSON object that may
-    still be mid-generation. Returns the decoded prefix available so far
-    (stopping before any incomplete escape), or None if the field hasn't
-    started yet. The prefix only ever grows as `raw` grows."""
-    match = re.search(r'"%s"\s*:\s*"' % re.escape(field), raw)
-    if not match:
-        return None
+class _JsonStringFieldDecoder:
+    """Incrementally decodes one top-level string field (e.g. "answer") of a
+    JSON object that is still being generated. feed() only scans characters
+    that arrived since the last call, so streaming a long answer stays linear
+    in its length. Output stops before any incomplete escape sequence and at
+    the field's closing quote."""
+
+    def __init__(self, field: str):
+        self._key = re.compile(r'"%s"\s*:\s*"' % re.escape(field))
+        self._raw = ""
+        self._pos: Optional[int] = None  # start of the not-yet-decoded value text
+        self._closed = False
+
+    @property
+    def started(self) -> bool:
+        return self._pos is not None
+
+    def feed(self, piece: str) -> str:
+        if self._closed:
+            return ""
+        self._raw += piece
+        if self._pos is None:
+            match = self._key.search(self._raw)
+            if not match:
+                return ""
+            self._pos = match.end()
+        out, self._pos, self._closed = _decode_json_chars(self._raw, self._pos)
+        return out
+
+
+def _decode_json_chars(raw: str, i: int) -> tuple[str, int, bool]:
+    """Decode JSON string content from raw[i:]; returns (text, next_index,
+    reached_closing_quote). Stops before an incomplete escape."""
     out = []
-    i, n = match.end(), len(raw)
+    n = len(raw)
     while i < n:
         c = raw[i]
         if c == '"':
-            break
+            return "".join(out), i + 1, True
         if c != "\\":
             out.append(c)
             i += 1
@@ -91,7 +116,15 @@ def partial_json_string_field(raw: str, field: str) -> Optional[str]:
             continue
         out.append(chr(code))
         i += 6
-    return "".join(out)
+    return "".join(out), i, False
+
+
+def partial_json_string_field(raw: str, field: str) -> Optional[str]:
+    """Decoded prefix of string field `field` in (possibly incomplete) JSON
+    `raw`, or None if the field hasn't started yet."""
+    decoder = _JsonStringFieldDecoder(field)
+    text = decoder.feed(raw)
+    return text if decoder.started else None
 
 
 def _stream_emitter(
@@ -103,18 +136,12 @@ def _stream_emitter(
     (the model is writing JSON; the user should see the answer, not braces)."""
     if emit is None:
         return None
-    raw_parts: list[str] = []
-    state = {"sent": 0}
+    decoder = _JsonStringFieldDecoder(json_field) if json_field else None
 
     def on_token(piece: str) -> None:
-        if json_field is None:
-            emit({"stage": "stream", "status": "delta", "text": piece})
-            return
-        raw_parts.append(piece)
-        text = partial_json_string_field("".join(raw_parts), json_field)
-        if text is not None and len(text) > state["sent"]:
-            emit({"stage": "stream", "status": "delta", "text": text[state["sent"]:]})
-            state["sent"] = len(text)
+        text = decoder.feed(piece) if decoder else piece
+        if text:
+            emit({"stage": "stream", "status": "delta", "text": text})
 
     return on_token
 
