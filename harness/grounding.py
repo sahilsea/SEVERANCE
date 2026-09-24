@@ -12,14 +12,20 @@ DESIGN (same principles as verify.py):
 - Pure Python, zero model calls, deterministic and auditable.
 - A sentence is UNSUPPORTED if under SUPPORT_THRESHOLD of its content words
   (stopwords and generic filler removed, crude suffix-stemmed) appear in the
-  passages, or if it states a number that appears nowhere in the passages.
+  passages, or if it states a specific number (above SMALL_NUMBER_MAX) that
+  appears nowhere in the passages. Small numbers are usually counts the model
+  derived ("3 steps"), so they are ignored rather than required.
+- Polarity: if the source sentences a statement is built from say the
+  opposite ("do not use water" vs "use water"), the statement is unsupported
+  even though every word matches.
 - Threshold chosen on real stored answers from this corpus: grounded
   sentences scored 71-100%, invented ones 40-61%.
 
 HONEST LIMIT: this catches invented facts -- entities, actions, numbers that
-aren't in the source. It cannot catch a false relationship composed entirely
-of words the source does contain ("X was not used properly" when the source
-merely lists X). It is a filter, not a proof of entailment.
+aren't in the source -- and flipped negations. It cannot catch every false
+relationship composed of words the source does contain ("X was used
+improperly" when the source merely lists X). It is a filter, not a proof of
+entailment.
 """
 
 from __future__ import annotations
@@ -31,6 +37,11 @@ from contracts import Passage
 
 SUPPORT_THRESHOLD = 0.70
 MIN_CONTENT_TOKENS = 3  # shorter fragments (headings, "Stay calm.") are not scored
+SMALL_NUMBER_MAX = 10  # counts/ordinals the model derives; not required in the source
+POLARITY_MATCH = 0.6  # a source sentence sharing this much of a statement's content is its basis
+_NEGATIONS = {"no", "not", "never", "none", "nor", "cannot", "without"}
+# Prohibitions carry the same polarity as "not": "is prohibited" restates "do not".
+_NEGATIVE_PREFIXES = ("prohibit", "forbid", "avoid", "refrain", "disallow", "banned", "restrict")
 
 _STOPWORDS = set("""
 a an the and or but if then than that this these those there here of in on at to for from by with as is
@@ -57,9 +68,42 @@ def _stem(word: str) -> str:
     return word[:6]
 
 
+def _words(text: str) -> list[str]:
+    return re.findall(r"[a-z0-9]+", text.lower().replace("n't", " not").replace("n’t", " not"))
+
+
+def _is_small_number(token: str) -> bool:
+    return token.isdigit() and int(token) <= SMALL_NUMBER_MAX
+
+
 def _content_tokens(text: str) -> list[str]:
-    tokens = re.findall(r"[a-z0-9]+", text.lower())
-    return [_stem(t) for t in tokens if t.isdigit() or (len(t) >= 3 and t not in _STOPWORDS)]
+    return [
+        _stem(t) for t in _words(text)
+        if (t.isdigit() and not _is_small_number(t)) or (not t.isdigit() and len(t) >= 3 and t not in _STOPWORDS)
+    ]
+
+
+def _negated(text: str) -> bool:
+    return any(w in _NEGATIONS or w.startswith(_NEGATIVE_PREFIXES) for w in _words(text))
+
+
+def _source_sentences(passages: Sequence[Passage]) -> list[tuple[set[str], bool]]:
+    units = []
+    for p in passages:
+        for sentence in re.split(r"(?<=[.!?;:])\s+|\n+", p.text):
+            tokens = set(_content_tokens(sentence))
+            if tokens:
+                units.append((tokens, _negated(sentence)))
+    return units
+
+
+def _polarity_conflict(sentence: str, tokens: list[str], sources: list[tuple[set[str], bool]]) -> bool:
+    """True when the source sentences this statement is built from all carry
+    the opposite negation. No close source sentence means the statement
+    synthesises across several, and polarity isn't judged."""
+    wanted = set(tokens)
+    basis = [neg for src, neg in sources if len(wanted & src) >= POLARITY_MATCH * len(wanted)]
+    return bool(basis) and _negated(sentence) not in basis
 
 
 def _split_sentences(line: str) -> list[str]:
@@ -78,6 +122,7 @@ def check(answer: str, passages: Sequence[Passage]) -> GroundingResult:
     # so each passage's id, title and page number count as source text too.
     source = " ".join(f"{p.doc_id} {p.title} {p.page} {p.text}" for p in passages)
     vocab = set(_content_tokens(source))
+    sources = _source_sentences(passages)
     result = GroundingResult()
     for line in answer.splitlines():
         if line.strip().startswith("#"):
@@ -90,7 +135,11 @@ def check(answer: str, passages: Sequence[Passage]) -> GroundingResult:
             result.checked += 1
             missing = [t for t in tokens if t not in vocab]
             invented_number = any(t.isdigit() and t not in vocab for t in tokens)
-            if invented_number or 1 - len(missing) / len(tokens) < SUPPORT_THRESHOLD:
+            if (
+                invented_number
+                or 1 - len(missing) / len(tokens) < SUPPORT_THRESHOLD
+                or _polarity_conflict(sentence, tokens, sources)
+            ):
                 result.unsupported.append(sentence)
     return result
 

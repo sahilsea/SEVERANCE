@@ -102,9 +102,17 @@ async def no_store_static_assets(request: Request, call_next):
     above -- otherwise a JS edit (e.g. app.js) can silently fail to reach a
     browser that cached the old file, with no visible sign anything is wrong.
     This app has no build step or content-hashed filenames to cache-bust
-    with, so "always revalidate" is the only option that keeps edits live."""
+    with, so "always revalidate" is the only option that keeps edits live.
+
+    The exception is /static/vendor/: third-party files (Tailwind, fonts)
+    whose filenames carry a version or content hash and never change in
+    place, so browsers may keep them indefinitely instead of re-downloading
+    ~2.4 MB on every page load."""
     response = await call_next(request)
-    if request.url.path.startswith("/static/"):
+    path = request.url.path
+    if path.startswith("/static/vendor/"):
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    elif path.startswith("/static/"):
         response.headers["Cache-Control"] = "no-store, must-revalidate"
     return response
 

@@ -162,6 +162,16 @@ def build_report(
         den_sheet.column_dimensions["A"].width = 28
         den_sheet.column_dimensions["B"].width = 70
 
+    # openpyxl stores any string starting with "=" as a live formula. Every cell
+    # here holds document/model/user text, never an intended formula, so force
+    # all of them to plain strings -- a quote or answer line like
+    # '=HYPERLINK("http://...")' must not execute when the report is opened.
+    for sheet in wb.worksheets:
+        for row in sheet.iter_rows():
+            for cell in row:
+                if cell.data_type == "f":
+                    cell.data_type = "s"
+
     bio = io.BytesIO()
     wb.save(bio)
     file_bytes = bio.getvalue()

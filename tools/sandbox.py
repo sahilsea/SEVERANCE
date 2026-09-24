@@ -15,27 +15,22 @@ inside it). What it actually enforces, per run:
   3. POSIX resource limits (CPU time, address space, output file size,
      process count) applied via preexec_fn, to contain runaway resource use
      -- a crude fork-bomb/memory-bomb backstop, not a full quota system.
-  4. Outbound network calls blocked at the Python level: socket.connect and
-     name resolution are monkeypatched to raise before the user's code ever
-     runs, inside the subprocess, and every attempt is logged to the real
-     network monitor. This stops normal Python networking (urllib, requests,
-     http.client all end up calling socket) but is NOT a kernel-level
-     firewall -- code that reaches the network through something other than
-     Python's socket module (a raw syscall via ctypes, a subprocess spawning
-     curl) is not stopped by this. It IS the right layer for its actual
-     purpose here: proving, in the demo, that generated code cannot phone
-     out, for the overwhelming majority of ways Python code would do that.
-  5. A dedicated, empty temp working directory per run, deleted afterward --
-     the code can read/write files, but only within its own throwaway
-     sandbox directory, and that directory starts empty every time.
+  4. No network access. On macOS (the app not already sandboxed) the macOS
+     kernel refuses every network operation -- raw sockets, ctypes and
+     subprocesses included -- and file writes are limited to the run's own
+     directories. Elsewhere, name resolution and connect() are
+     blocked at the Python level only. Every attempt is logged to the real
+     network monitor. See the mode notes above _NETWORK_PREAMBLE.
+  5. A dedicated, empty temp working directory per run, deleted afterward.
 This is real containment appropriate for "run and verify code this same
-local model just generated for the user," not a hardened boundary for
-executing arbitrary untrusted/adversarial code from strangers.
+local model just generated for the user." Reads are not restricted, and the
+Python-only fallback mode is not a hardened boundary for adversarial code.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import re
 import resource
 import shutil
@@ -96,28 +91,45 @@ def _set_resource_limits() -> None:
             pass
 
 
-# Name resolution is blocked too, not just connect(): libraries like urllib3
-# call getaddrinfo() BEFORE connecting, and a DNS query is itself traffic
-# leaving the machine. Each blocked attempt is appended to a file in the
-# run's own directory, which the parent reads back and records in the real
-# network log (the child has no access to the app database).
-_NETWORK_BLOCK_PREAMBLE = textwrap.dedent(
+# Two enforcement modes, chosen per run by _os_sandbox_available():
+#
+# OS MODE (macOS, app not already inside a sandbox): the child runs under
+# sandbox-exec with a profile in which the KERNEL denies every network
+# operation (the call fails with "Operation not permitted") and file writes
+# outside its own directories. Nothing inside the process -- raw _socket,
+# ctypes, reloading socket -- can get past that. The Python preamble only
+# REPORTS the destination it is about to try and then lets the real call
+# through, so the kernel is what stops it. The kernel denies rather than kills
+# (SIGKILL): a sandbox kill makes macOS show a "Python quit unexpectedly"
+# dialog every time, and it offers no silent, unforgeable record of a denial.
+# So the LOG is best-effort, as in Python mode: code could fake or hide its own
+# entries, but never reach the network.
+#
+# PYTHON MODE (fallback: already sandboxed -- macOS refuses to nest
+# sandbox-exec -- or not macOS): the preamble blocks name resolution and
+# connect() itself and raises. This stops normal Python networking but is not
+# kernel-enforced, and reports cannot be corroborated, so they are validated
+# and capped. When the app runs under scripts/run_sandboxed.sh the outer
+# kernel profile still denies all non-loopback traffic for this child.
+_NETWORK_PREAMBLE = textwrap.dedent(
     """
     import json as _sandbox_json
     import socket as _sandbox_socket
 
-    _SANDBOX_ATTEMPTS_PATH = {attempts_path!r}
+    _SANDBOX_REPORT_PATH = {report_path!r}
+    _SANDBOX_OS_ENFORCED = {os_enforced!r}
 
-    def _sandbox_block(host, port):
+    def _sandbox_report(host, port):
         try:
-            with open(_SANDBOX_ATTEMPTS_PATH, "a") as _f:
+            with open(_SANDBOX_REPORT_PATH, "a") as _f:
                 _f.write(_sandbox_json.dumps({{"host": str(host), "port": port}}) + "\\n")
         except Exception:
             pass
-        raise RuntimeError(
-            f"Network access blocked: this air-gapped workbench does not allow "
-            f"outbound connections (attempted {{host}}:{{port}})."
-        )
+        if not _SANDBOX_OS_ENFORCED:
+            raise RuntimeError(
+                f"Network access blocked: this air-gapped workbench does not allow "
+                f"outbound connections (attempted {{host}}:{{port}})."
+            )
 
     def _sandbox_port(port):
         try:
@@ -130,42 +142,78 @@ _NETWORK_BLOCK_PREAMBLE = textwrap.dedent(
             return address[0], _sandbox_port(address[1])
         return str(address), 0
 
-    def _blocked_getaddrinfo(host, port, *_a, **_k):
-        _sandbox_block(host, _sandbox_port(port))
+    def _sandbox_wrap(original, describe):
+        def wrapper(*args, **kwargs):
+            _sandbox_report(*describe(*args))
+            return original(*args, **kwargs)
+        return wrapper
 
-    def _blocked_gethostbyname(host, *_a, **_k):
-        _sandbox_block(host, 0)
-
-    def _blocked_create_connection(address, *_a, **_k):
-        _sandbox_block(*_sandbox_addr(address))
-
-    def _blocked_connect(_self, address, *_a, **_k):
-        _sandbox_block(*_sandbox_addr(address))
-
-    _sandbox_socket.getaddrinfo = _blocked_getaddrinfo
-    _sandbox_socket.gethostbyname = _blocked_gethostbyname
-    _sandbox_socket.gethostbyname_ex = _blocked_gethostbyname
-    _sandbox_socket.create_connection = _blocked_create_connection
-    _sandbox_socket.socket.connect = _blocked_connect
-    _sandbox_socket.socket.connect_ex = _blocked_connect
+    _sandbox_socket.getaddrinfo = _sandbox_wrap(_sandbox_socket.getaddrinfo, lambda h, p, *a: (h, _sandbox_port(p)))
+    _sandbox_socket.gethostbyname = _sandbox_wrap(_sandbox_socket.gethostbyname, lambda h, *a: (h, 0))
+    _sandbox_socket.gethostbyname_ex = _sandbox_wrap(_sandbox_socket.gethostbyname_ex, lambda h, *a: (h, 0))
+    _sandbox_socket.create_connection = _sandbox_wrap(_sandbox_socket.create_connection, lambda a, *r: _sandbox_addr(a))
+    _sandbox_socket.socket.connect = _sandbox_wrap(_sandbox_socket.socket.connect, lambda s, a, *r: _sandbox_addr(a))
+    _sandbox_socket.socket.connect_ex = _sandbox_wrap(_sandbox_socket.socket.connect_ex, lambda s, a, *r: _sandbox_addr(a))
     """
 )
 
-ATTEMPTS_FILENAME = ".severance_network_attempts.jsonl"
+_SANDBOX_EXEC = "/usr/bin/sandbox-exec"
+_CHILD_PROFILE = """
+(version 1)
+(allow default)
+(deny network*)
+(deny file-write*)
+(allow file-write*
+  (subpath (param "WORKDIR"))
+  (subpath (param "REPORT_DIR"))
+  (literal "/dev/null")
+  (regex #"^/dev/tty")
+  (regex #"^/dev/fd/"))
+"""
+
+REPORT_FILENAME = "network_attempts.jsonl"
 SANDBOX_PROCESS_LABEL = "code-sandbox"
+MAX_REPORTED_ATTEMPTS = 10
+_VALID_HOST = re.compile(r"^[A-Za-z0-9._:%\[\]-]{1,253}$")
+_os_sandbox_cache: Optional[bool] = None
 
 
-def _read_attempts(path: Path) -> list[dict]:
+def _already_sandboxed() -> bool:
+    try:
+        import ctypes
+        libsystem = ctypes.CDLL("/usr/lib/libSystem.B.dylib")
+        return libsystem.sandbox_check(os.getpid(), None, 0) == 1
+    except Exception:
+        return False
+
+
+def _os_sandbox_available() -> bool:
+    global _os_sandbox_cache
+    if _os_sandbox_cache is None:
+        _os_sandbox_cache = (
+            sys.platform == "darwin" and os.path.exists(_SANDBOX_EXEC) and not _already_sandboxed()
+        )
+    return _os_sandbox_cache
+
+
+def _read_reports(path: Path) -> list[dict]:
+    """Well-formed destination reports, de-duplicated and capped."""
     if not path.exists():
         return []
-    attempts = []
-    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
-        try:
-            item = json.loads(line)
-            attempts.append({"host": str(item.get("host", "")), "port": int(item.get("port") or 0)})
-        except (ValueError, TypeError):
-            continue
-    return attempts
+    reports: list[dict] = []
+    with path.open(encoding="utf-8", errors="replace") as f:
+        for line in f:
+            try:
+                item = json.loads(line)
+                host, port = str(item.get("host", "")), int(item.get("port") or 0)
+            except (ValueError, TypeError, AttributeError):
+                continue
+            entry = {"host": host, "port": port}
+            if _VALID_HOST.match(host) and 0 <= port <= 65535 and entry not in reports:
+                reports.append(entry)
+                if len(reports) >= MAX_REPORTED_ATTEMPTS:
+                    break
+    return reports
 
 
 def run_python(code: str, timeout: float = DEFAULT_TIMEOUT_SECONDS, db_path: Optional[str] = None) -> dict:
@@ -180,19 +228,30 @@ def run_python(code: str, timeout: float = DEFAULT_TIMEOUT_SECONDS, db_path: Opt
 
     Returns: {"success": bool, "stdout": str, "stderr": str,
               "returncode": Optional[int], "timed_out": bool,
-              "network_attempts": list[{"host": str, "port": int}]}
+              "network_attempts": list[{"host": str, "port": int}],
+              "network_enforcement": "os" | "python"}
     """
-    workdir = Path(tempfile.mkdtemp(prefix="severance-sandbox-"))
-    attempts_path = workdir / ATTEMPTS_FILENAME
+    os_mode = _os_sandbox_available()
+    # Resolved paths: the kernel profile matches real paths, and macOS temp
+    # dirs live behind the /var -> /private/var symlink.
+    workdir = Path(tempfile.mkdtemp(prefix="severance-sandbox-")).resolve()
+    report_dir = Path(tempfile.mkdtemp(prefix="severance-sandbox-report-")).resolve()
+    report_path = report_dir / REPORT_FILENAME
     try:
-        preamble = _NETWORK_BLOCK_PREAMBLE.format(attempts_path=str(attempts_path))
-        script = preamble + "\n" + code
+        preamble = _NETWORK_PREAMBLE.format(report_path=str(report_path), os_enforced=os_mode)
         script_path = workdir / "main.py"
-        script_path.write_text(script, encoding="utf-8")
+        script_path.write_text(preamble + "\n" + code, encoding="utf-8")
+
+        command = [sys.executable, "-I", str(script_path)]
+        if os_mode:
+            command = [
+                _SANDBOX_EXEC, "-p", _CHILD_PROFILE,
+                "-D", f"WORKDIR={workdir}", "-D", f"REPORT_DIR={report_dir}",
+            ] + command
 
         try:
             proc = subprocess.run(
-                [sys.executable, "-I", str(script_path)],
+                command,
                 cwd=str(workdir),
                 capture_output=True,
                 text=True,
@@ -215,13 +274,22 @@ def run_python(code: str, timeout: float = DEFAULT_TIMEOUT_SECONDS, db_path: Opt
                 "timed_out": True,
             }
 
-        attempts = _read_attempts(attempts_path)
+        attempts = _read_reports(report_path)
+        if os_mode and attempts:
+            where = ", ".join(f"{a['host']}:{a['port']}" if a["port"] else a["host"] for a in attempts)
+            result["stderr"] += (
+                f"\n[Network access blocked by the OS sandbox: the code tried to reach {where}; "
+                f"the kernel refused the connection.]"
+            )
+
         for attempt in attempts:
             record_blocked_attempt(SANDBOX_PROCESS_LABEL, attempt["host"], attempt["port"], db_path=db_path)
         result["network_attempts"] = attempts
+        result["network_enforcement"] = "os" if os_mode else "python"
         return result
     finally:
         shutil.rmtree(workdir, ignore_errors=True)
+        shutil.rmtree(report_dir, ignore_errors=True)
 
 
 def _as_text(value) -> str:
